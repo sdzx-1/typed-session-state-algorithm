@@ -92,8 +92,15 @@ instance Show St where
   show = \case
     TerminalSt -> "End"
     St i -> "S" ++ show i
-    StBrSend st i -> "S" ++ show i ++ " " ++ st
-    StBrRecv i -> "S" ++ show i ++ " s"
+    StBrSend st i -> "(S" ++ show i ++ " " ++ st <> ")"
+    StBrRecv i -> "(S" ++ show i ++ " s)"
+
+showNoParen :: St -> [Char]
+showNoParen = \case
+  TerminalSt -> "End"
+  St i -> "S" ++ show i
+  StBrSend st i -> "S" ++ show i ++ " " ++ st
+  StBrRecv i -> "S" ++ show i ++ " s"
 
 genRst :: String -> SPSet -> (role' -> Int) -> R role' [Int] -> R role' [St]
 genRst branchSt sps roleF = \case
@@ -114,8 +121,8 @@ genRst branchSt sps roleF = \case
       (map StBrRecv ann)
       (map (\(BranchVal st r) -> BranchVal st (genRst st sps roleF r)) vs)
 
-pipleR :: (Show role') => [role'] -> (role' -> Int) -> R role' () -> String
-pipleR roles roleF rr =
+pipleR' :: (Show role') => [role'] -> (role' -> Int) -> R role' () -> R role' [St]
+pipleR' roles roleF rr =
   let roleNum = length roles
       rInt = snd $ runIdentity $ runFresh 0 $ addIndex rr
       rcs = constrToSubMap $ rToConstraints roleNum roleF rInt
@@ -124,7 +131,57 @@ pipleR roles roleF rr =
       v1' = fmap (fmap (\i -> fromMaybe i $ IntMap.lookup i subMap1)) vv
       allsps = collectAllNoDec v1'
       v2' = genRst "" allsps roleF v1'
-   in render roles roleF (\is -> [CenterFill ((i + 1) * width) ' ' (show v) | (i, v) <- zip [0 ..] is]) v2'
+   in v2'
+
+-- >>> parenSt "n"
+-- "(n)"
+parenSt :: String -> String
+parenSt st = "(" <> st <> ")"
+
+-- >>> parenSt' "n"
+-- "'(n)"
+parenSt' :: String -> String
+parenSt' st = "\'(" <> st <> ")"
+
+genMsgStr :: (Show role') => String -> String -> (role' -> Int) -> R role' [St] -> String
+genMsgStr roleName stName roleF = \case
+  Terminal _ -> ""
+  (Arrow ann send recv st :> r) ->
+    let ann1 = rToAnn r
+        vst =
+          "  "
+            <> st
+            <> " :: Msg"
+            <> " "
+            <> roleName
+            <> " "
+            <> stName
+            <> " "
+            <> show (ann !! roleF send)
+            <> " "
+            <> parenSt' (show send <> ", " <> showNoParen (ann1 !! roleF send))
+            <> " "
+            <> parenSt' (show recv <> ", " <> showNoParen (ann1 !! roleF recv))
+            <> "\n"
+     in vst <> genMsgStr roleName stName roleF r
+  Branch _ vs -> concatMap (\(BranchVal _ r) -> genMsgStr roleName stName roleF r) vs
+
+pipleR1 :: (Show role') => String -> String -> [role'] -> (role' -> Int) -> R role' () -> String
+pipleR1 roleName stName roles roleF rr =
+  "data Msg "
+    <> roleName
+    <> " "
+    <> stName
+    <> " from send recv where\n"
+    <> genMsgStr roleName stName roleF (pipleR' roles roleF rr)
+
+pipleR :: (Show role') => [role'] -> (role' -> Int) -> R role' () -> String
+pipleR roles roleF rr =
+  render
+    roles
+    roleF
+    (\is -> [CenterFill ((i + 1) * width) ' ' (show v) | (i, v) <- zip [0 ..] is])
+    (pipleR' roles roleF rr)
 
 -----------------------------------------------------------------------
 
@@ -154,24 +211,34 @@ v1 =
 rv1 :: String
 rv1 = pipleR [Client, Server, ClientBackup] pingPongToInt v1
 
+rv1' :: String
+rv1' = pipleR1 "PingPongRole" "PingPong" [Client, Server, ClientBackup] pingPongToInt v1
+
 {-
+>>> error rv1'
 >>> error rv1
+data Msg PingPongRole PingPong from send recv
+  Ping:: Msg PingPongRole PingPong (S0 True) '(Client, S2) '(Server, S2)
+  Pong:: Msg PingPongRole PingPong S2 '(Server, End) '(Client, (S1 True))
+  Add:: Msg PingPongRole PingPong (S1 True) '(Client, End) '(ClientBackup, End)
+  Stop:: Msg PingPongRole PingPong (S0 False) '(Client, (S1 False)) '(Server, End)
+  AStop:: Msg PingPongRole PingPong (S1 False) '(Client, End) '(ClientBackup, End)
 -----------------Client--------------Server-----------ClientBackup--------------
-                  S0 s                S0 s                S1 s
+                 (S0 s)              (S0 s)              (S1 s)
     ----------------------------------True----------------------------------
-                S0 True               S0 s                S1 s
+               (S0 True)             (S0 s)              (S1 s)
         Ping       |        --->       |
-                   S2                  S2                 S1 s
+                   S2                  S2                (S1 s)
         Pong       |        <---       |
-                S1 True               End                 S1 s
+               (S1 True)              End                (S1 s)
         Add        |                  --->                 |
                   End                 End                 End
                                     Terminal
 
     ---------------------------------False----------------------------------
-                S0 False              S0 s                S1 s
+               (S0 False)            (S0 s)              (S1 s)
         Stop       |        --->       |
-                S1 False              End                 S1 s
+               (S1 False)             End                (S1 s)
        AStop       |                  --->                 |
                   End                 End                 End
                                     Terminal
@@ -225,45 +292,28 @@ v2 =
     bookRoleToInt
     p
 
+v2' :: [Char]
+v2' =
+  pipleR1
+    "Role"
+    "BookSt"
+    [Buyer, Seller, Buyer2]
+    bookRoleToInt
+    p
+
 {-
 
->>> error v2
------------------Buyer---------------Seller--------------Buyer2-----------------
-                   S0                  S0                 S1 s
-       Title       |        --->       |
-                  S2 s                S2 s                S1 s
-    ------------------------------BookNotFound------------------------------
-                  S2 s          S2 BookNotFound           S1 s
-    BookNotFoun    |        <---       |
-            S1 BookNotFound           End                 S1 s
-  SellerNotFoundB  |                  --->                 |
-                  End                 End                 End
-                                    Terminal
-
-    -------------------------------BookFound--------------------------------
-                  S2 s            S2 BookFound            S1 s
-       Price       |        <---       |
-              S1 BookFound            S3 s                S1 s
-   PriceToBuyer2   |                  --->                 |
-                   S4                 S3 s                 S4
-     HalfPrice     |                  <---                 |
-                  S3 s                S3 s                S5 s
-        --------------------------EnoughBudget--------------------------
-            S3 EnoughBudget           S3 s                S5 s
-       Afford      |        --->       |
-                   S6                  S6                 S5 s
-        Data       |        <---       |
-            S5 EnoughBudget           End                 S5 s
-      Success      |                  --->                 |
-                  End                 End                 End
-                                    Terminal
-
-        ------------------------NotEnoughBudget-------------------------
-           S3 NotEnoughBudget         S3 s                S5 s
-       NotBuy      |        --->       |
-           S5 NotEnoughBudget         End                 S5 s
-       Failed      |                  --->                 |
-                  End                 End                 End
-                                    Terminal
-
+>>> error v2'
+data Msg Role BookSt from send recv where
+  Title :: Msg Role BookSt S0 '(Buyer, S2 s) '(Seller, S2 s)
+  BookNotFoun :: Msg Role BookSt (S2 BookNotFound) '(Seller, End) '(Buyer, S1 BookNotFound)
+  SellerNotFoundBook :: Msg Role BookSt (S1 BookNotFound) '(Buyer, End) '(Buyer2, End)
+  Price :: Msg Role BookSt (S2 BookFound) '(Seller, S3 s) '(Buyer, S1 BookFound)
+  PriceToBuyer2 :: Msg Role BookSt (S1 BookFound) '(Buyer, S4) '(Buyer2, S4)
+  HalfPrice :: Msg Role BookSt S4 '(Buyer2, S5 s) '(Buyer, S3 s)
+  Afford :: Msg Role BookSt (S3 EnoughBudget) '(Buyer, S6) '(Seller, S6)
+  Data :: Msg Role BookSt S6 '(Seller, End) '(Buyer, S5 EnoughBudget)
+  Success :: Msg Role BookSt (S5 EnoughBudget) '(Buyer, End) '(Buyer2, End)
+  NotBuy :: Msg Role BookSt (S3 NotEnoughBudget) '(Buyer, S5 NotEnoughBudget) '(Seller, End)
+  Failed :: Msg Role BookSt (S5 NotEnoughBudget) '(Buyer, End) '(Buyer2, End)
 -}
