@@ -22,15 +22,26 @@ runCenterFills ls =
    in foldl' runCenterFill "" ls'
 
 width :: Int
-width = 20
+width = 30
+
+reSt :: String -> String
+reSt st =
+  let st' = words st
+   in case st' of
+        [] -> error "np"
+        (x : _) ->
+          let lv = width - 6
+           in if length x >= lv
+                then take (lv - 2) x <> ".."
+                else x
 
 render'
-  :: (Show ann, Show role')
+  :: (Show ann, Show bSt, Show role')
   => Int
   -> (role' -> Int)
   -> Int
   -> (ann -> [StringFill])
-  -> R role' ann
+  -> R role' bSt ann
   -> [[StringFill]]
 render' roleNum roleF nestVal renderAnn rr =
   case rr of
@@ -46,10 +57,10 @@ render' roleNum roleF nestVal renderAnn rr =
       let a' = (roleF a + 1) * width
           b' = (roleF b + 1) * width
           va =
-            [ CenterFill (width `div` 2) ' ' (take 15 st)
+            [ CenterFill (width `div` 2) ' ' (reSt st)
             , CenterFill a' ' ' "|"
             , CenterFill b' ' ' "|"
-            , CenterFill ((a' + b') `div` 2) ' ' (if a' > b' then "<---" else "--->")
+            , CenterFill ((a' + b') `div` 2) ' ' (if a' > b' then "<-----" else "----->")
             ]
        in renderAnn ann : va : render' roleNum roleF nestVal renderAnn r
     Branch ann vs ->
@@ -58,7 +69,7 @@ render' roleNum roleF nestVal renderAnn rr =
           ( \(BranchVal st r) ->
               let maxSize = (roleNum + 1) * width
                in [ CenterFill (nestVal * 4 + 1) ' ' "-"
-                  , CenterFill (maxSize `div` 2) '-' st
+                  , CenterFill (maxSize `div` 2) '-' (show st)
                   , CenterFill (maxSize - nestVal * 4) '-' "-"
                   ]
                     : render' roleNum roleF (nestVal + 1) renderAnn r
@@ -66,11 +77,11 @@ render' roleNum roleF nestVal renderAnn rr =
           vs
 
 render
-  :: (Show ann, Show role')
+  :: (Show ann, Show bSt, Show role')
   => [role']
   -> (role' -> Int)
   -> (ann -> [StringFill])
-  -> R role' ann
+  -> R role' bSt ann
   -> String
 render roles roleF renderAnn rr =
   let roleNum = length roles
