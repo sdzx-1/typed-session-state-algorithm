@@ -1,4 +1,4 @@
-# Revision history for communication-protocol-state-algorithm
+# Revision history for typed-session-state-algorithm
 
 ## 0.1.0.0 -- YYYY-mm-dd
 
