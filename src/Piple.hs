@@ -60,8 +60,7 @@ rToConstraints roleNum roleF = \case
             ]
      in ccs
           <> concatMap
-            ( \(BranchVal _ r) -> rToConstraints roleNum roleF r
-            )
+            (\(BranchVal _ r) -> rToConstraints roleNum roleF r)
             vs
   arr@Arrow{} :> r -> baseConstraint roleNum roleF arr (rToAnn r) <> rToConstraints roleNum roleF r
 
@@ -263,9 +262,39 @@ rv1' = pipleR1 "PingPongRole" "PingPong" [Client, Server, ClientBackup] pingPong
                             End                           End                           End
                                                         Terminal
 
+---------------------------Client------------------------Server---------------------ClientBackup------------------------
+                                                        {LABEL 0}
+    ----------------------------------------------------[PTrue]-----------------------------------------------------
+             Ping Int        |            ----->           |
+             Pong            |            <-----           |
+             Add             |                           ----->                          |
+                                                     {GOTO LABEL 0}
+
+    ----------------------------------------------------[PFalse]----------------------------------------------------
+             Stop            |            ----->           |
+            AStop            |                           ----->                          |
+                                                          {END}
+
+seq, branch, lable,  goto lable, end
+label 0 ----------
+
+[- - - - - - - -
+ Ping
+,- - - - - - - -
+ Pong
+,- - - - - - - -
+ Add
+,- - - - - - - -
+ Stop
+,- - - - - - - -
+ AStop
+,- - - - - - - -
+]
+
 -}
 
--- -----------------------------------------------------------------------
+
+-------------------------------------------------------------------------
 data BookRole
   = Buyer
   | Seller
@@ -332,6 +361,9 @@ p =
               ]
       ]
 
+{- ORMOLU_DISABLE -}
+{- ORMOLU_ENABLE -}
+
 v2 :: [Char]
 v2 =
   pipleR
@@ -381,7 +413,7 @@ data Msg Role BookSt from send recv where
          SellerNoBook        |                           ----->                          |
                             End                           End                           End
                                                         Terminal
-                                                                                                                        
+
     ----------------------------------------------------[Found]-----------------------------------------------------
                            (S2 s)                     (S2 [Found])                     (S1 s)
             Price            |            <-----           |
@@ -397,7 +429,7 @@ data Msg Role BookSt from send recv where
           OneSuccess         |                           ----->                          |
                             End                           End                           End
                                                         Terminal
-                                                                                                                        
+
         ----------------------------------------------[Two,Found]-----------------------------------------------
                       (S1 [Two,Found])                   (S3 s)                        (S1 s)
         PriceToBuyer2        |                           ----->                          |
@@ -409,7 +441,7 @@ data Msg Role BookSt from send recv where
           TwoNotBuy          |            ----->           |
                             End                           End                           End
                                                         Terminal
-                                                                                                                        
+
             --------------------------------------[Support,Two,Found]---------------------------------------
                            (S6 s)                        (S3 s)               (S6 [Support,Two,Found])
           SupportVal         |                           <-----                          |
@@ -423,7 +455,7 @@ data Msg Role BookSt from send recv where
           TwoSuccess         |                           ----->                          |
                             End                           End                           End
                                                         Terminal
-                                                                                                                        
+
                 -----------------------------[NotEnough,Support,Two,Found]------------------------------
              (S3 [NotEnough,Support,Two,Found])          (S3 s)                        (S7 s)
           TwoNotBuy1         |            ----->           |
@@ -431,5 +463,5 @@ data Msg Role BookSt from send recv where
           TwoFailed          |                           ----->                          |
                             End                           End                           End
                                                         Terminal
-                                                                                                                        
+
 -}
