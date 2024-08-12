@@ -1,91 +1,77 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeAbstractions #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module N where
 
-infixr 5 :>
-data BranchSt r bst a = BranchSt a bst (M r bst a)
+import Control.Algebra (Has)
+import Control.Effect.Fresh
+import Data.Void
+
+data BranchSt eta r bst = BranchSt bst (M eta r bst)
   deriving (Functor)
 
-data MsgOrLabel eta r a
-  = Msg a a String [String] r r
-  | Label a Int
+data MsgOrLabel eta r
+  = Msg (XMsg eta) String [String] r r
+  | Label (XLabel eta) Int
   deriving (Functor)
 
-data M r bst a
-  = (MsgOrLabel r bst a) :> (M r bst a)
-  | Branch a r [BranchSt r bst a]
-  | Goto a Int
-  | Terminal a
+data M eta r bst
+  = (MsgOrLabel eta r) :> (M eta r bst)
+  | Branch (XBranch eta) r [BranchSt eta r bst]
+  | Goto (XBranch eta) Int
+  | Terminal (XBranch eta)
   deriving (Functor)
 
-bottomToUp :: M r bst a -> M r bst b
-bottomToUp = undefined
+type family XMsg eta
+type family XLabel eta
+type family XBranch eta
+type family XGoto eta
+type family XTerminal eta
 
-{-
-0 - - - - - - - - Label 0
-1 - - - - - - - - Msg String [String] r r
-_ - - - - - - - - Label 1
-2 - - - - - - - - Msg String [String] r r
-3 - - - - - - - - Goto 0
-4 - - - - - - - - Msg String [String] r r
+data Creat
 
-m a               label
-a -> m a          Msg
--}
+type instance XMsg Creat = ()
+type instance XLabel Creat = ()
+type instance XBranch Creat = ()
+type instance XGoto Creat = ()
+type instance XTerminal Creat = ()
 
-------------------------------------------
--- data BookRole
---   = Buyer
---   | Seller
---   | Buyer2
---   deriving (Show, Enum, Bounded, Eq, Ord, Ix)
+data AddNums
 
--- >>> pppp
--- [Buyer,Seller,Buyer2]
+type instance XMsg AddNums = ([Int], [Int])
+type instance XLabel AddNums = [Int]
+type instance XBranch AddNums = [Int]
+type instance XGoto AddNums = [Int]
+type instance XTerminal AddNums = [Int]
 
--- pppp = [minBound @BookRole .. maxBound]
-
--- bookRoleToInt :: BookRole -> Int
--- bookRoleToInt = \case
---   Buyer -> 0
---   Seller -> 1
---   Buyer2 -> 2
-
--- data BookBranchSt
---   = NotFound
---   | Found
---   | One
---   | Two
---   | Support
---   | NotSupport
---   | Enough
---   | NotEnough
---   deriving (Show)
-
--- pp :: M BookRole BookBranchSt
--- pp =
---   Label 0
---     :> Msg "Msg1" [] Buyer Seller
---     :> Msg "Msg2" [] Seller Buyer
---     :> Branch1
---       Seller
---       [ BranchSt One $
---           Msg "Msg3" [] Seller Buyer2
---             :> Msg "Msg4" [] Buyer2 Seller
---             :> Terminal1
---       , BranchSt Two $
---           Msg "Msg5" [] Seller Buyer2
---             :> Msg "Msg6" [] Buyer2 Seller
---             :> Terminal1
---       ]
-
--- interpret :: (Monad m) => M r bst -> m ()
--- interpret (Label n) = undefined
--- interpret (Msg constName params from to) = undefined
--- interpret (a :>> b) = undefined
--- interpret _ = undefined
+addNums
+  :: forall r bst sig m
+   . ( Has Fresh sig m
+     , Enum r
+     , Bounded r
+     )
+  => [Int] -> M Creat r bst -> m ([Int], M AddNums r bst)
+addNums inputNums = \case
+  msgOrLabel :> ms -> do
+    case msgOrLabel of
+      Msg _ a b c d -> do
+        i <- fresh
+        let tmp = [minBound @r .. maxBound]
+            sized = length tmp
+            nums = fmap (\x -> i * sized + fromEnum x) tmp
+        (is', ms') <- addNums nums ms
+        pure (is', Msg (inputNums, nums) a b c d :> ms')
+      Label _ i -> do
+        (is', ms') <- addNums inputNums ms
+        pure (is', Label inputNums i :> ms')
+  Branch _ r ls -> undefined
+  Goto _ i -> undefined
+  Terminal _ -> undefined
