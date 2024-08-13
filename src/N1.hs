@@ -126,9 +126,7 @@ v2 =
               ]
       ]
 
--- >>> error "--------------------"
 -- >>> N.piple v2
--- --------------------
 -- Right Label [0,0,1] 0
 -- Msg ([0,0,1],[2,2,1]) Title [] Buyer Seller
 -- Branch Seller
