@@ -12,25 +12,19 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module N where
 
 import qualified Constraint as C
-import Control.Algebra (Has, (:+:))
-import qualified Control.Applicative as C
+import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
 import Control.Carrier.State.Strict
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
-import Control.Effect.Fresh
-import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList), for_)
-import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Constraint, Type)
@@ -38,8 +32,6 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Data.Traversable (for)
-import Data.Void
 
 data BranchSt eta r bst = BranchSt bst (Protocol eta r bst)
   deriving (Functor)
@@ -118,7 +110,7 @@ addNums' inputNums = \case
   Branch r ls -> do
     let len = length ls
     -- At least two branches.
-    when (len < 2) (throwError (AtLeastTwoBranches len ls))
+    -- when (len < 2) (throwError (AtLeastTwoBranches len ls))
     -- The first message of each branch must have the same receiver and sender.
     -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
@@ -188,7 +180,8 @@ compressSubMap sbm' =
   let (minKey, maxKey) = (fst $ IntMap.findMin sbm', fst $ IntMap.findMax sbm')
       list = [minKey .. maxKey]
       (keys, vals) = (list, fmap (\k -> fromMaybe k $ IntMap.lookup k sbm') list)
-      tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [-1, 0 ..]
+      minVal = minimum vals
+      tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [minVal, minVal + 1 ..]
       vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
    in IntMap.fromList $ zip keys vals'
 
@@ -249,52 +242,3 @@ ppProtocol v = case v of
         ls
   Goto xv i -> "Goto " ++ show xv ++ " " ++ show i ++ "\n"
   Terminal xv -> "Terminal " ++ show xv ++ "\n"
-
-----------------------------------
-data PingPong = Client | Server | Counter
-  deriving (Show, Eq, Ord, Enum, Bounded)
-
-v1 :: Protocol Creat PingPong Bool
-v1 =
-  Label () 0
-    :> Branch
-      Client
-      [ BranchSt True $
-          Msg () "Ping" [] Client Server
-            :> Msg () "Pong" [] Server Client
-            :> Msg () "Add" [] Client Counter
-            :> Goto () 0
-      , BranchSt False $
-          Msg () "Stop" [] Client Server
-            :> Msg () "AStop" [] Client Counter
-            :> Terminal ()
-      ]
-
--- >>> error "------------------------"
--- >>> error $ show v1
--- >>> error "------------------------"
--- >>> error $ show (piple v1)
--- ------------------------
--- Label () 0
--- Branch Client
--- BranchSt True
--- Msg () Ping [] Client Server
--- Msg () Pong [] Server Client
--- Msg () Add [] Client Counter
--- Goto () 0
--- BranchSt False
--- Msg () Stop [] Client Server
--- Msg () AStop [] Client Counter
--- Terminal ()
--- ------------------------
--- Right Label [0,0,1] 0
--- Branch Client
--- BranchSt True
--- Msg ([0,0,1],[2,2,1]) Ping [] Client Server
--- Msg ([2,2,1],[1,0,1]) Pong [] Server Client
--- Msg ([1,0,1],[0,0,1]) Add [] Client Counter
--- Goto [0,0,1] 0
--- BranchSt False
--- Msg ([0,0,1],[1,-1,1]) Stop [] Client Server
--- Msg ([1,-1,1],[-1,-1,-1]) AStop [] Client Counter
--- Terminal [-1,-1,-1]
