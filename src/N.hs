@@ -33,6 +33,8 @@ import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Constraint, Type)
+import qualified Data.List as L
+import Data.Maybe (fromJust)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
@@ -177,13 +179,20 @@ genConstraint' = \case
       Just ls -> tellSeq $ zipWith C.Constraint xs ls
   Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
 
+compressSubMap :: C.SubMap -> C.SubMap
+compressSubMap sbm =
+  let (keys, vals) = unzip $ IntMap.toList sbm
+      tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [-1, 0 ..]
+      vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
+   in IntMap.fromList $ zip keys vals'
+
 genSubMap
   :: forall r bst
    . (Enum r)
   => Protocol AddNums r bst
   -> Either (ProtocolError r bst) C.SubMap
 genSubMap protc =
-  (\(a, (_, b)) -> (const (C.constrToSubMap $ toList a) <$> b))
+  (\(a, (_, b)) -> (const (compressSubMap $ C.constrToSubMap $ toList a) <$> b))
     . run
     . runWriter @(Seq C.Constraint)
     . runState @(IntMap [Int]) (IntMap.empty)
@@ -262,4 +271,4 @@ v1 =
 -- Msg ([12,13,14],[15,16,17]) AStop [] Client Counter
 -- Terminal [15,16,17]
 -- ------------------------
--- Right (fromList [(1,0),(4,3),(5,2),(6,2),(7,0),(8,2),(9,0),(10,0),(11,2),(12,2),(13,-1),(14,2),(15,-1),(16,-1),(17,-1)])
+-- Right (fromList [(1,0),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)])

@@ -4,6 +4,7 @@ import Data.Foldable (foldl')
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as I
 import qualified Data.List as L
+import Data.Maybe (fromJust)
 
 {- | Constraint
  1 ~ 2 = Constraint 1 2
