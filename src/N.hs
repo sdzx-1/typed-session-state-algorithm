@@ -110,7 +110,7 @@ addNums' inputNums = \case
   Branch r ls -> do
     let len = length ls
     -- At least two branches.
-    -- when (len < 2) (throwError (AtLeastTwoBranches len ls))
+    when (len < 2) (throwError (AtLeastTwoBranches len ls))
     -- The first message of each branch must have the same receiver and sender.
     -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
