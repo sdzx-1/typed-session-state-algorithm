@@ -13,8 +13,10 @@
 module N where
 
 import Control.Algebra (Has)
+import Control.Carrier.Fresh.Strict
 import Control.Effect.Fresh
 import Control.Monad
+import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Constraint, Type)
 import Data.Traversable (for)
 import Data.Void
@@ -59,14 +61,14 @@ type instance XLabel AddNums = [Int]
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
 
-addNums
+addNums'
   :: forall r bst sig m
    . ( Has Fresh sig m
      , Enum r
      , Bounded r
      )
   => [Int] -> Protocol Creat r bst -> m ([Int], Protocol AddNums r bst)
-addNums inputNums = \case
+addNums' inputNums = \case
   msgOrLabel :> ms -> do
     case msgOrLabel of
       Msg _ a b c d -> do
@@ -74,10 +76,10 @@ addNums inputNums = \case
         let tmp = [minBound @r .. maxBound]
             sized = length tmp
             nums = fmap (\x -> i * sized + fromEnum x) tmp
-        (is', ms') <- addNums nums ms
+        (is', ms') <- addNums' nums ms
         pure (is', Msg (inputNums, nums) a b c d :> ms')
       Label _ i -> do
-        (is', ms') <- addNums inputNums ms
+        (is', ms') <- addNums' inputNums ms
         pure (is', Label inputNums i :> ms')
   Branch r ls -> do
     (ins, ls') <- go inputNums ls
@@ -95,9 +97,19 @@ go
 go inputNums = \case
   [] -> pure (inputNums, [])
   BranchSt bst prot : xs -> do
-    (_, prot') <- addNums inputNums prot
+    (_, prot') <- addNums' inputNums prot
     (ins'', branchs) <- go inputNums xs
     pure (ins'', BranchSt bst prot' : branchs)
+
+addNums
+  :: forall r bst
+   . (Enum r, Bounded r)
+  => Protocol Creat r bst -> Protocol AddNums r bst
+addNums protoc =
+  snd
+    . snd
+    . runIdentity
+    $ runFresh 1 (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
 
 ----------------------------------
 
@@ -125,34 +137,45 @@ ppProtocol = \case
 data PingPong = Client | Server | Counter
   deriving (Show, Eq, Ord, Enum, Bounded)
 
-data PPSt = PTrue | PFalse
-  deriving (Show)
-
-v1 :: Protocol Creat PingPong PPSt
+v1 :: Protocol Creat PingPong Bool
 v1 =
   Label () 0
     :> Branch
       Client
-      [ BranchSt PTrue $
+      [ BranchSt True $
           Msg () "Ping" [] Client Server
             :> Msg () "Pong" [] Server Client
             :> Msg () "Add" [] Client Counter
             :> Goto () 0
-      , BranchSt PFalse $
+      , BranchSt False $
           Msg () "Stop" [] Client Server
             :> Msg () "AStop" [] Client Counter
             :> Terminal ()
       ]
 
 -- >>> error $ ppProtocol v1
+-- >>> error "------------------------"
+-- >>> error $ ppProtocol (addNums v1)
 -- Label () 0
 -- Branch Client
--- BranchSt PTrue
+-- BranchSt True
 -- Msg () Ping [] Client Server
 -- Msg () Pong [] Server Client
 -- Msg () Add [] Client Counter
 -- Goto () 0
--- BranchSt PFalse
+-- BranchSt False
 -- Msg () Stop [] Client Server
 -- Msg () AStop [] Client Counter
 -- Terminal ()
+-- ------------------------
+-- Label [0,1,2] 0
+-- Branch Client
+-- BranchSt True
+-- Msg ([0,1,2],[3,4,5]) Ping [] Client Server
+-- Msg ([3,4,5],[6,7,8]) Pong [] Server Client
+-- Msg ([6,7,8],[9,10,11]) Add [] Client Counter
+-- Goto [9,10,11] 0
+-- BranchSt False
+-- Msg ([0,1,2],[12,13,14]) Stop [] Client Server
+-- Msg ([12,13,14],[15,16,17]) AStop [] Client Counter
+-- Terminal [15,16,17]
