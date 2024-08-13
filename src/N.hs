@@ -198,6 +198,11 @@ genSubMap protc =
     . runState @(IntMap [Int]) (IntMap.empty)
     $ runError @(ProtocolError r bst) (genConstraint' protc)
 
+replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
+replaceNums sbm = \case
+  msgOrLabel :> prots -> undefined
+  _ -> undefined
+
 ----------------------------------
 
 ppProtocol :: (ForallX Show eta, Show r, Show bst) => Protocol eta r bst -> String
