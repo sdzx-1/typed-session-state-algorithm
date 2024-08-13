@@ -28,7 +28,7 @@ import Control.Effect.Fresh
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad
-import Data.Foldable (for_)
+import Data.Foldable (Foldable (toList), for_)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -161,8 +161,8 @@ genConstraint' = \case
       Msg (is, os) _ _ from to -> do
         let ifrom = fromEnum from
             ito = fromEnum to
-            from' = is !! ifrom
-            to' = os !! ito
+            from' = is !! ifrom --- is
+            to' = is !! ito --- is
             deleteIndexFromTo ks = fmap snd $ filter (\(idx, _) -> idx /= ifrom && idx /= ito) $ zip [0 ..] ks
         tellSeq $ C.Constraint from' to' : zipWith C.Constraint (deleteIndexFromTo is) (deleteIndexFromTo os)
       lb@(Label is i) -> do
@@ -177,13 +177,13 @@ genConstraint' = \case
       Just ls -> tellSeq $ zipWith C.Constraint xs ls
   Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
 
-genConstraint
+genSubMap
   :: forall r bst
    . (Enum r)
   => Protocol AddNums r bst
-  -> Either (ProtocolError r bst) (Seq C.Constraint)
-genConstraint protc =
-  (\(a, (_, b)) -> (const a <$> b))
+  -> Either (ProtocolError r bst) C.SubMap
+genSubMap protc =
+  (\(a, (_, b)) -> (const (C.constrToSubMap $ toList a) <$> b))
     . run
     . runWriter @(Seq C.Constraint)
     . runState @(IntMap [Int]) (IntMap.empty)
@@ -231,9 +231,13 @@ v1 =
             :> Terminal ()
       ]
 
+-- >>> error "------------------------"
 -- >>> error $ show v1
 -- >>> error "------------------------"
 -- >>> error $ show (addNums v1)
+-- >>> error "------------------------"
+-- >>> error $ show (addNums v1 >>= genSubMap)
+-- ------------------------
 -- Label () 0
 -- Branch Client
 -- BranchSt True
@@ -257,3 +261,5 @@ v1 =
 -- Msg ([0,1,2],[12,13,14]) Stop [] Client Server
 -- Msg ([12,13,14],[15,16,17]) AStop [] Client Counter
 -- Terminal [15,16,17]
+-- ------------------------
+-- Right (fromList [(1,0),(4,3),(5,2),(6,2),(7,0),(8,2),(9,0),(10,0),(11,2),(12,2),(13,-1),(14,2),(15,-1),(16,-1),(17,-1)])
