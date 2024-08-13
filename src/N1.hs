@@ -120,7 +120,7 @@ v2 =
                               , BranchSt NotEnough $
                                   Msg "TwoNotBuy1" [] Buyer Seller
                                     :> Msg "TwoFailed" [] Buyer Buyer2
-                                    :> Goto 0
+                                    :> Terminal
                               ]
                       ]
               ]
@@ -160,6 +160,6 @@ v2 =
 -- Msg ([5,0,5],[0,0,1]) TwoSuccess [] Buyer Buyer2
 -- Goto [0,0,1] 0
 -- BranchSt NotEnough
--- Msg ([1,1,5],[5,0,5]) TwoNotBuy1 [] Buyer Seller
--- Msg ([5,0,5],[0,0,1]) TwoFailed [] Buyer Buyer2
--- Goto [0,0,1] 0
+-- Msg ([1,1,5],[5,-1,5]) TwoNotBuy1 [] Buyer Seller
+-- Msg ([5,-1,5],[-1,-1,-1]) TwoFailed [] Buyer Buyer2
+-- Terminal [-1,-1,-1]
