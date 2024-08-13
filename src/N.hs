@@ -9,14 +9,22 @@
 {-# LANGUAGE TypeAbstractions #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module N where
 
-import Control.Algebra (Has)
+import qualified Constraint as Constraint
+import Control.Algebra (Has, (:+:))
+import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
+import Control.Effect.Error
 import Control.Effect.Fresh
+import Control.Effect.State
+import Control.Effect.Writer
 import Control.Monad
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
 import Data.Traversable (for)
 import Data.Void
@@ -38,6 +46,9 @@ data Protocol eta r bst
   | Terminal (XTerminal eta)
   deriving (Functor)
 
+instance (ForallX Show eta, Show r, Show bst) => Show (Protocol eta r bst) where
+  show = ppProtocol
+
 type family XMsg eta
 type family XLabel eta
 type family XGoto eta
@@ -45,6 +56,9 @@ type family XTerminal eta
 
 type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XGoto eta), f (XTerminal eta))
+
+data ProtocolError = AtLeastTwoBranches String
+  deriving (Show)
 
 ------------------------
 data Creat
@@ -63,7 +77,7 @@ type instance XTerminal AddNums = [Int]
 
 addNums'
   :: forall r bst sig m
-   . ( Has Fresh sig m
+   . ( Has (Fresh :+: Error ProtocolError) sig m
      , Enum r
      , Bounded r
      )
@@ -89,7 +103,7 @@ addNums' inputNums = \case
 
 go
   :: forall r bst sig m
-   . ( Has Fresh sig m
+   . ( Has (Fresh :+: Error ProtocolError) sig m
      , Enum r
      , Bounded r
      )
@@ -104,17 +118,26 @@ go inputNums = \case
 addNums
   :: forall r bst
    . (Enum r, Bounded r)
-  => Protocol Creat r bst -> Protocol AddNums r bst
+  => Protocol Creat r bst -> Either ProtocolError (Protocol AddNums r bst)
 addNums protoc =
-  snd
+  fmap snd
     . snd
     . runIdentity
-    $ runFresh 1 (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
+    . runFresh 1
+    . runError @ProtocolError
+    $ (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
+
+----------------------------------
+
+generateConstraint
+  :: (Has (State (IntMap Int) :+: Writer [Int]) sig m)
+  => Protocol AddNums r bst -> m ()
+generateConstraint = undefined
 
 ----------------------------------
 
 ppProtocol :: (ForallX Show eta, Show r, Show bst) => Protocol eta r bst -> String
-ppProtocol = \case
+ppProtocol v = case v of
   msgOrLabel :> prot ->
     let r1 = case msgOrLabel of
           Msg xmsg a b c d ->
@@ -153,9 +176,9 @@ v1 =
             :> Terminal ()
       ]
 
--- >>> error $ ppProtocol v1
+-- >>> error $ show v1
 -- >>> error "------------------------"
--- >>> error $ ppProtocol (addNums v1)
+-- >>> error $ show (addNums v1)
 -- Label () 0
 -- Branch Client
 -- BranchSt True
@@ -168,7 +191,7 @@ v1 =
 -- Msg () AStop [] Client Counter
 -- Terminal ()
 -- ------------------------
--- Label [0,1,2] 0
+-- Right Label [0,1,2] 0
 -- Branch Client
 -- BranchSt True
 -- Msg ([0,1,2],[3,4,5]) Ping [] Client Server
