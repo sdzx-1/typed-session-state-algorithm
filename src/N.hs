@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE EmptyCase #-}
@@ -117,6 +118,7 @@ addNums' inputNums = \case
   Branch r ls -> do
     let len = length ls
     when (len < 2) (throwError (AtLeastTwoBranches len ls))
+    ---- add more check
     (ins, ls') <- go inputNums ls
     pure (ins, Branch r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
@@ -198,10 +200,20 @@ genSubMap protc =
     . runState @(IntMap [Int]) (IntMap.empty)
     $ runError @(ProtocolError r bst) (genConstraint' protc)
 
+replaceList :: C.SubMap -> [Int] -> [Int]
+replaceList sbm ls = fmap (\k -> fromJust $ IntMap.lookup k sbm) ls
+
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
 replaceNums sbm = \case
-  msgOrLabel :> prots -> undefined
-  _ -> undefined
+  msgOrLabel :> prots ->
+    let prots' = replaceNums sbm prots
+     in case msgOrLabel of
+          Msg (a, b) c d e f ->
+            Msg (replaceList sbm a, replaceList sbm b) c d e f :> prots'
+          Label a i -> Label (replaceList sbm a) i :> prots'
+  Branch r ls -> Branch r $ fmap (\(BranchSt v prots) -> BranchSt v (replaceNums sbm prots)) ls
+  Goto xv i -> Goto (replaceList sbm xv) i
+  Terminal xv -> Terminal (replaceList sbm xv)
 
 ----------------------------------
 
