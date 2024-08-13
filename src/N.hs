@@ -117,12 +117,26 @@ addNums' inputNums = \case
         pure (is', Label inputNums i :> ms')
   Branch r ls -> do
     let len = length ls
+    -- At least two branches.
     when (len < 2) (throwError (AtLeastTwoBranches len ls))
-    ---- add more check
+    -- The first message of each branch must have the same receiver and sender.
+    -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
     pure (ins, Branch r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
+
+getFirstMsgft :: Protocol eta r bst -> Maybe (r, r)
+getFirstMsgft = \case {}
+
+checkBranch
+  :: forall r bst sig m
+   . (Has (Error (ProtocolError r bst)) sig m)
+  => [BranchSt AddNums r bst] -> m ()
+checkBranch brs = do
+  -- The first message of each branch must have the same receiver and sender.
+  -- Each branch sender must send a message to all other receivers to notify the state change.
+  undefined
 
 go
   :: forall r bst sig m
@@ -271,10 +285,6 @@ v1 =
 -- >>> error "------------------------"
 -- >>> error $ show v1
 -- >>> error "------------------------"
--- >>> error $ show (addNums v1)
--- >>> error "------------------------"
--- >>> error $ show (addNums v1 >>= genSubMap)
--- >>> error "------------------------"
 -- >>> error $ show (piple v1)
 -- ------------------------
 -- Label () 0
@@ -288,20 +298,6 @@ v1 =
 -- Msg () Stop [] Client Server
 -- Msg () AStop [] Client Counter
 -- Terminal ()
--- ------------------------
--- Right Label [0,1,2] 0
--- Branch Client
--- BranchSt True
--- Msg ([0,1,2],[3,4,5]) Ping [] Client Server
--- Msg ([3,4,5],[6,7,8]) Pong [] Server Client
--- Msg ([6,7,8],[9,10,11]) Add [] Client Counter
--- Goto [9,10,11] 0
--- BranchSt False
--- Msg ([0,1,2],[12,13,14]) Stop [] Client Server
--- Msg ([12,13,14],[15,16,17]) AStop [] Client Counter
--- Terminal [15,16,17]
--- ------------------------
--- Right (fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)])
 -- ------------------------
 -- Right Label [0,0,1] 0
 -- Branch Client
