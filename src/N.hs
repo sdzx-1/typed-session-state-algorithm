@@ -145,7 +145,7 @@ addNums
 addNums protoc =
   fmap snd
     . snd
-    . runIdentity
+    . run
     . runFresh 1
     . runError @(ProtocolError r bst)
     $ (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
@@ -217,7 +217,10 @@ replaceNums sbm = \case
   Goto xv i -> Goto (replaceList sbm xv) i
   Terminal xv -> Terminal (replaceList sbm xv)
 
-piple :: (Enum r, Bounded r) => Protocol Creat r bst -> Either (ProtocolError r bst) (Protocol AddNums r bst)
+piple
+  :: (Enum r, Bounded r)
+  => Protocol Creat r bst
+  -> Either (ProtocolError r bst) (Protocol AddNums r bst)
 piple prot = do
   prot' <- addNums prot
   sbm <- genSubMap prot'
