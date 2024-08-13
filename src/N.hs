@@ -35,7 +35,7 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Constraint, Type)
 import qualified Data.List as L
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
@@ -182,8 +182,11 @@ genConstraint' = \case
   Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
 
 compressSubMap :: C.SubMap -> C.SubMap
-compressSubMap sbm =
-  let (keys, vals) = unzip $ IntMap.toList sbm
+compressSubMap sbm' =
+  let (miv, mxv) = (\xs -> (minimum xs, maximum xs)) $ IntMap.keys sbm'
+      list = [miv .. mxv]
+      sbm = IntMap.fromList $ zip list $ fmap (\k -> fromMaybe k $ IntMap.lookup k sbm') list
+      (keys, vals) = unzip $ IntMap.toList sbm
       tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [-1, 0 ..]
       vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
    in IntMap.fromList $ zip keys vals'
@@ -201,7 +204,7 @@ genSubMap protc =
     $ runError @(ProtocolError r bst) (genConstraint' protc)
 
 replaceList :: C.SubMap -> [Int] -> [Int]
-replaceList sbm ls = fmap (\k -> fromJust $ IntMap.lookup k sbm) ls
+replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
 
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
 replaceNums sbm = \case
@@ -214,6 +217,12 @@ replaceNums sbm = \case
   Branch r ls -> Branch r $ fmap (\(BranchSt v prots) -> BranchSt v (replaceNums sbm prots)) ls
   Goto xv i -> Goto (replaceList sbm xv) i
   Terminal xv -> Terminal (replaceList sbm xv)
+
+piple :: (Enum r, Bounded r) => Protocol Creat r bst -> Either (ProtocolError r bst) (Protocol AddNums r bst)
+piple prot = do
+  prot' <- addNums prot
+  sbm <- genSubMap prot'
+  pure $ replaceNums sbm prot'
 
 ----------------------------------
 
@@ -263,6 +272,8 @@ v1 =
 -- >>> error $ show (addNums v1)
 -- >>> error "------------------------"
 -- >>> error $ show (addNums v1 >>= genSubMap)
+-- >>> error "------------------------"
+-- >>> error $ show (piple v1)
 -- ------------------------
 -- Label () 0
 -- Branch Client
@@ -288,4 +299,16 @@ v1 =
 -- Msg ([12,13,14],[15,16,17]) AStop [] Client Counter
 -- Terminal [15,16,17]
 -- ------------------------
--- Right (fromList [(1,0),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)])
+-- Right (fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)])
+-- ------------------------
+-- Right Label [0,0,1] 0
+-- Branch Client
+-- BranchSt True
+-- Msg ([0,0,1],[2,2,1]) Ping [] Client Server
+-- Msg ([2,2,1],[1,0,1]) Pong [] Server Client
+-- Msg ([1,0,1],[0,0,1]) Add [] Client Counter
+-- Goto [0,0,1] 0
+-- BranchSt False
+-- Msg ([0,0,1],[1,-1,1]) Stop [] Client Server
+-- Msg ([1,-1,1],[-1,-1,-1]) AStop [] Client Counter
+-- Terminal [-1,-1,-1]
