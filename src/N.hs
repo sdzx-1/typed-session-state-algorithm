@@ -11,22 +11,30 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module N where
 
-import qualified Constraint as Constraint
+import qualified Constraint as C
 import Control.Algebra (Has, (:+:))
+import qualified Control.Applicative as C
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
+import Control.Carrier.State.Strict
+import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
 import Control.Effect.Fresh
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad
+import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.Kind (Constraint, Type)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Data.Void
 
@@ -58,11 +66,16 @@ type family XTerminal eta
 type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XGoto eta), f (XTerminal eta))
 
-data ProtocolError r bst = AtLeastTwoBranches Int [BranchSt Creat r bst]
+data ProtocolError r bst
+  = AtLeastTwoBranches Int [BranchSt Creat r bst]
+  | DefLabelMultTimes (MsgOrLabel AddNums r)
+  | LabelUndefined (Protocol AddNums r bst)
 
 instance Show (ProtocolError r bst) where
   show = \case
     AtLeastTwoBranches _i _ls -> "At least two branches are required"
+    DefLabelMultTimes _ -> "Defining Label multiple times"
+    LabelUndefined _ -> "Label Undefined"
 
 ------------------------
 data Creat
@@ -135,10 +148,46 @@ addNums protoc =
 
 ----------------------------------
 
-generateConstraint
-  :: (Has (State (IntMap Int) :+: Writer [Int]) sig m)
+tellSeq :: (Has (Writer (Seq a)) sig m) => [a] -> m ()
+tellSeq ls = tell (Seq.fromList ls)
+
+genConstraint'
+  :: forall r bst sig m
+   . (Has (State (IntMap [Int]) :+: Writer (Seq C.Constraint) :+: Error (ProtocolError r bst)) sig m, Enum r)
   => Protocol AddNums r bst -> m ()
-generateConstraint = undefined
+genConstraint' = \case
+  msgOrLabel :> prots -> do
+    case msgOrLabel of
+      Msg (is, os) _ _ from to -> do
+        let ifrom = fromEnum from
+            ito = fromEnum to
+            from' = is !! ifrom
+            to' = os !! ito
+            deleteIndexFromTo ks = fmap snd $ filter (\(idx, _) -> idx /= ifrom && idx /= ito) $ zip [0 ..] ks
+        tellSeq $ C.Constraint from' to' : zipWith C.Constraint (deleteIndexFromTo is) (deleteIndexFromTo os)
+      lb@(Label is i) -> do
+        gets @(IntMap [Int]) (IntMap.lookup i) >>= \case
+          Just _ -> throwError @(ProtocolError r bst) (DefLabelMultTimes lb)
+          Nothing -> modify (IntMap.insert i is)
+    genConstraint' prots
+  Branch _ ls -> for_ ls $ \(BranchSt _ prot) -> genConstraint' prot
+  gt@(Goto xs i) -> do
+    gets @(IntMap [Int]) (IntMap.lookup i) >>= \case
+      Nothing -> throwError (LabelUndefined gt)
+      Just ls -> tellSeq $ zipWith C.Constraint xs ls
+  Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
+
+genConstraint
+  :: forall r bst
+   . (Enum r)
+  => Protocol AddNums r bst
+  -> Either (ProtocolError r bst) (Seq C.Constraint)
+genConstraint protc =
+  (\(a, (_, b)) -> (const a <$> b))
+    . run
+    . runWriter @(Seq C.Constraint)
+    . runState @(IntMap [Int]) (IntMap.empty)
+    $ runError @(ProtocolError r bst) (genConstraint' protc)
 
 ----------------------------------
 
