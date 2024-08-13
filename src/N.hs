@@ -183,10 +183,9 @@ genConstraint' = \case
 
 compressSubMap :: C.SubMap -> C.SubMap
 compressSubMap sbm' =
-  let (miv, mxv) = (\xs -> (minimum xs, maximum xs)) $ IntMap.keys sbm'
-      list = [miv .. mxv]
-      sbm = IntMap.fromList $ zip list $ fmap (\k -> fromMaybe k $ IntMap.lookup k sbm') list
-      (keys, vals) = unzip $ IntMap.toList sbm
+  let (minKey, maxKey) = (fst $ IntMap.findMin sbm', fst $ IntMap.findMax sbm')
+      list = [minKey .. maxKey]
+      (keys, vals) = (list, fmap (\k -> fromMaybe k $ IntMap.lookup k sbm') list)
       tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [-1, 0 ..]
       vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
    in IntMap.fromList $ zip keys vals'
