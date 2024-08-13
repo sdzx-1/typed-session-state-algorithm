@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module N where
 
@@ -57,8 +58,11 @@ type family XTerminal eta
 type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XGoto eta), f (XTerminal eta))
 
-data ProtocolError = AtLeastTwoBranches String
-  deriving (Show)
+data ProtocolError r bst = AtLeastTwoBranches Int [BranchSt Creat r bst]
+
+instance Show (ProtocolError r bst) where
+  show = \case
+    AtLeastTwoBranches _i _ls -> "At least two branches are required"
 
 ------------------------
 data Creat
@@ -77,7 +81,7 @@ type instance XTerminal AddNums = [Int]
 
 addNums'
   :: forall r bst sig m
-   . ( Has (Fresh :+: Error ProtocolError) sig m
+   . ( Has (Fresh :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      )
@@ -96,6 +100,8 @@ addNums' inputNums = \case
         (is', ms') <- addNums' inputNums ms
         pure (is', Label inputNums i :> ms')
   Branch r ls -> do
+    let len = length ls
+    when (len < 2) (throwError (AtLeastTwoBranches len ls))
     (ins, ls') <- go inputNums ls
     pure (ins, Branch r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
@@ -103,7 +109,7 @@ addNums' inputNums = \case
 
 go
   :: forall r bst sig m
-   . ( Has (Fresh :+: Error ProtocolError) sig m
+   . ( Has (Fresh :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      )
@@ -118,13 +124,13 @@ go inputNums = \case
 addNums
   :: forall r bst
    . (Enum r, Bounded r)
-  => Protocol Creat r bst -> Either ProtocolError (Protocol AddNums r bst)
+  => Protocol Creat r bst -> Either (ProtocolError r bst) (Protocol AddNums r bst)
 addNums protoc =
   fmap snd
     . snd
     . runIdentity
     . runFresh 1
-    . runError @ProtocolError
+    . runError @(ProtocolError r bst)
     $ (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
 
 ----------------------------------
