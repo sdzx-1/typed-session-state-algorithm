@@ -126,18 +126,6 @@ addNums' inputNums = \case
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
 
-getFirstMsgft :: Protocol eta r bst -> Maybe (r, r)
-getFirstMsgft = \case {}
-
-checkBranch
-  :: forall r bst sig m
-   . (Has (Error (ProtocolError r bst)) sig m)
-  => [BranchSt AddNums r bst] -> m ()
-checkBranch brs = do
-  -- The first message of each branch must have the same receiver and sender.
-  -- Each branch sender must send a message to all other receivers to notify the state change.
-  undefined
-
 go
   :: forall r bst sig m
    . ( Has (Fresh :+: Error (ProtocolError r bst)) sig m
