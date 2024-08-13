@@ -65,12 +65,20 @@ data ProtocolError r bst
   = AtLeastTwoBranches Int [BranchSt Creat r bst]
   | DefLabelMultTimes (MsgOrLabel AddNums r)
   | LabelUndefined (Protocol AddNums r bst)
+  | BranchNoMsg
+  | BranchFirstMsgMustHaveTheSameReceiver
+  | BranchFirstMsgMustHaveTheSameSender
 
 instance Show (ProtocolError r bst) where
   show = \case
     AtLeastTwoBranches _i _ls -> "At least two branches are required"
     DefLabelMultTimes _ -> "Defining Label multiple times"
     LabelUndefined _ -> "Label Undefined"
+    BranchNoMsg -> "Branch No Msg"
+    BranchFirstMsgMustHaveTheSameReceiver ->
+      "The first message of each branch must have the same receiver."
+    BranchFirstMsgMustHaveTheSameSender ->
+      "The first message of each branch must have the same sender."
 
 ------------------------
 data Creat
@@ -92,6 +100,7 @@ addNums'
    . ( Has (Fresh :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
+     , Eq r
      )
   => [Int] -> Protocol Creat r bst -> m ([Int], Protocol AddNums r bst)
 addNums' inputNums = \case
@@ -112,17 +121,33 @@ addNums' inputNums = \case
     -- At least two branches.
     when (len < 2) (throwError (AtLeastTwoBranches len ls))
     -- The first message of each branch must have the same receiver and sender.
+    tos <- forM ls $ \(BranchSt _ prot) -> do
+      case getFirstMsgInfo prot of
+        Nothing -> throwError @(ProtocolError r bst) BranchNoMsg
+        Just (from, to) -> do
+          when (from /= r) (throwError @(ProtocolError r bst) BranchFirstMsgMustHaveTheSameReceiver)
+          pure to
+    when (any (/= head tos) tos) (throwError @(ProtocolError r bst) BranchFirstMsgMustHaveTheSameSender)
+
     -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
     pure (ins, Branch r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
 
+getFirstMsgInfo :: Protocol eta r bst -> Maybe (r, r)
+getFirstMsgInfo = \case
+  msgOrLabel :> prots -> case msgOrLabel of
+    Msg _ _ _ from to -> Just (from, to)
+    _ -> getFirstMsgInfo prots
+  _ -> Nothing
+
 go
   :: forall r bst sig m
    . ( Has (Fresh :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
+     , Eq r
      )
   => [Int] -> [BranchSt Creat r bst] -> m ([Int], [BranchSt AddNums r bst])
 go inputNums = \case
@@ -134,7 +159,7 @@ go inputNums = \case
 
 addNums
   :: forall r bst
-   . (Enum r, Bounded r)
+   . (Enum r, Bounded r, Eq r)
   => Protocol Creat r bst -> Either (ProtocolError r bst) (Protocol AddNums r bst)
 addNums protoc =
   fmap snd
@@ -213,7 +238,7 @@ replaceNums sbm = \case
   Terminal xv -> Terminal (replaceList sbm xv)
 
 piple
-  :: (Enum r, Bounded r)
+  :: (Enum r, Bounded r, Eq r)
   => Protocol Creat r bst
   -> Either (ProtocolError r bst) (Protocol AddNums r bst)
 piple prot = do
