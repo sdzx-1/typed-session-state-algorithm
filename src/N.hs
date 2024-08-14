@@ -182,8 +182,12 @@ genZst' = \case
             recvToSt = os !! fromEnum to
         bsts <- get @([bst])
         unSet <- ask @(Set Int)
-        let fun i = if i == -1 then End else if i `elem` unSet then TAny i else Null i
-            zst = Zst (TList fromSt bsts) (from, fun sendToSt) (to, fun recvToSt)
+        let fun i = if i == -1 then End else if i `elem` unSet then TList i bsts else Null i
+            zst =
+              Zst
+                (if fromSt `elem` unSet then (TList fromSt bsts) else Null fromSt)
+                (from, fun sendToSt)
+                (to, fun recvToSt)
         pure (Msg zst cont args from to)
       Label _ i -> pure (Label @(Yst r bst) () i)
     prots' <- genZst' prots

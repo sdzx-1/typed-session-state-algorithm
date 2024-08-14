@@ -54,8 +54,8 @@ v1 =
 -- [Branch] () Client
 --   * BranchSt True
 --   Msg 0 [True] (2 , 2) Client -> Server Ping [] Client Server
---   Msg 2 [True] (0 [True] , 1 s) Server -> Client Pong [] Server Client
---   Msg 1 [True] (0 [True] , 1 s) Client -> Counter Add [] Client Counter
+--   Msg 2 (0 [True] , 1 [True]) Server -> Client Pong [] Server Client
+--   Msg 1 [True] (0 [True] , 1 [True]) Client -> Counter Add [] Client Counter
 --   Goto () 0
 --   * BranchSt False
 --   Msg 0 [False] (1 [False] , End) Client -> Server Stop [] Client Server
@@ -139,38 +139,38 @@ v2 =
 
 -- >>> error $ show (N.piple v2)
 -- Right Label () 0
--- Msg 0 [] (2 s , 2 s) Buyer -> Seller Title [] Buyer Seller
+-- Msg 0 (2 [] , 2 []) Buyer -> Seller Title [] Buyer Seller
 -- [Branch] () Seller
 --   * BranchSt NotFound
---   Msg 2 [NotFound] (0 , 1 s) Seller -> Buyer NoBook [] Seller Buyer
---   Msg 1 [NotFound] (0 , 1 s) Buyer -> Buyer2 SellerNoBook [] Buyer Buyer2
+--   Msg 2 [NotFound] (0 , 1 [NotFound]) Seller -> Buyer NoBook [] Seller Buyer
+--   Msg 1 [NotFound] (0 , 1 [NotFound]) Buyer -> Buyer2 SellerNoBook [  ] Buyer Buyer2
 --   Goto () 0
 --   * BranchSt Found
---   Msg 2 [Found] (3 s , 1 s) Seller -> Buyer Price [] Seller Buyer
+--   Msg 2 [Found] (3 [Found] , 1 [Found]) Seller -> Buyer Price [] Seller Buyer
 --   [Branch] () Buyer
 --     * BranchSt One
---     Msg 1 [One,Found] (3 s , 4) Buyer -> Buyer2 OneAfford [] Buyer Buyer2
+--     Msg 1 [One,Found] (3 [One,Found] , 4) Buyer -> Buyer2 OneAfford [  ] Buyer Buyer2
 --     Msg 3 [One,Found] (5 , 5) Buyer -> Seller OneAccept [] Buyer Seller
---     Msg 5 [One,Found] (0 , 4) Seller -> Buyer OneDate [] Seller Buyer
---     Msg 4 [One,Found] (0 , 1 s) Buyer -> Buyer2 OneSuccess [] Buyer Buyer2
+--     Msg 5 (0 , 4) Seller -> Buyer OneDate [] Seller Buyer
+--     Msg 4 (0 , 1 [One,Found]) Buyer -> Buyer2 OneSuccess [] Buyer Buyer2
 --     Goto () 0
 --     * BranchSt Two
---     Msg 1 [Two,Found] (6 s , 6 s) Buyer -> Buyer2 PriceToBuyer2 [] Buyer Buyer2
+--     Msg 1 [Two,Found] (6 [Two,Found] , 6 [Two,Found]) Buyer -> Buyer2 PriceToBuyer2 [  ] Buyer Buyer2
 --     [Branch] () Buyer2
 --       * BranchSt NotSupport
---       Msg 6 [NotSupport,Two,Found] (1 s , 3 s) Buyer2 -> Buyer NotSupport [  ] Buyer2 Buyer
+--       Msg 6 [NotSupport,Two,Found] (1 [NotSupport,Two,Found] , 3 [NotSupport,Two,Found]) Buyer2 -> Buyer NotSupport [  ] Buyer2 Buyer
 --       Msg 3 [NotSupport,Two,Found] (0 , 0) Buyer -> Seller TwoNotBuy [  ] Buyer Seller
 --       Goto () 0
 --       * BranchSt Support
---       Msg 6 [Support,Two,Found] (7 s , 3 s) Buyer2 -> Buyer SupportVal [  ] Buyer2 Buyer
+--       Msg 6 [Support,Two,Found] (7 [Support,Two,Found] , 3 [Support,Two,Found]) Buyer2 -> Buyer SupportVal [  ] Buyer2 Buyer
 --       [Branch] () Buyer
 --         * BranchSt Enough
 --         Msg 3 [Enough,Support,Two,Found] (8 , 8) Buyer -> Seller TwoAccept [  ] Buyer Seller
---         Msg 8 [Enough,Support,Two,Found] (0 , 7 s) Seller -> Buyer TwoDate [  ] Seller Buyer
---         Msg 7 [Enough,Support,Two,Found] (0 , 1 s) Buyer -> Buyer2 TwoSuccess [  ] Buyer Buyer2
+--         Msg 8 (0 , 7 [Enough,Support,Two,Found]) Seller -> Buyer TwoDate [  ] Seller Buyer
+--         Msg 7 [Enough,Support,Two,Found] (0 , 1 [Enough,Support,Two,Found]) Buyer -> Buyer2 TwoSuccess [  ] Buyer Buyer2
 --         Goto () 0
 --         * BranchSt NotEnough
---         Msg 3 [NotEnough,Support,Two,Found] (7 s , End) Buyer -> Seller TwoNotBuy1 [  ] Buyer Seller
+--         Msg 3 [NotEnough,Support,Two,Found] (7 [NotEnough,Support,Two,Found] , End) Buyer -> Seller TwoNotBuy1 [  ] Buyer Seller
 --         Msg 7 [NotEnough,Support,Two,Found] (End , End) Buyer -> Buyer2 TwoFailed [  ] Buyer Buyer2
 --         Terminal ()
 
