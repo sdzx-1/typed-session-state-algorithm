@@ -20,7 +20,7 @@ pattern (:>) :: N.MsgOrLabel Creat r -> Protocol Creat r bst -> Protocol Creat r
 pattern (:>) a b = a N.:> b
 
 pattern Branch :: r -> [N.BranchSt Creat r bst] -> Protocol Creat r bst
-pattern Branch a b = N.Branch a b
+pattern Branch a b = N.Branch () a b
 
 pattern Goto :: Int -> Protocol Creat r bst
 pattern Goto i = N.Goto () i
@@ -51,7 +51,7 @@ v1 =
 
 -- >>> error $ show (N.piple v1)
 -- Right Label [0, 0, 1] 0
--- [Branch] Client
+-- [Branch] [0, 0, 1] Client
 --   * BranchSt True
 --   Msg ([0, 0, 1], [2, 2, 1]) Ping [] Client Server
 --   Msg ([2, 2, 1], [1, 0, 1]) Pong [] Server Client
@@ -94,7 +94,8 @@ v2 =
             :> Branch
               Buyer
               [ BranchSt One $
-                  Msg "OneAccept" [] Buyer Seller
+                  Msg "OneAfford" [] Buyer Buyer2
+                    :> Msg "OneAccept" [] Buyer Seller
                     :> Msg "OneDate" [] Seller Buyer
                     :> Msg "OneSuccess" [] Buyer Buyer2
                     :> Goto 0
@@ -127,37 +128,36 @@ v2 =
 -- >>> error $ show (N.piple v2)
 -- Right Label [0, 0, 1] 0
 -- Msg ([0, 0, 1], [2, 2, 1]) Title [] Buyer Seller
--- [Branch] Seller
+-- [Branch] [2, 2, 1] Seller
 --   * BranchSt NotFound
 --   Msg ([2, 2, 1], [1, 0, 1]) NoBook [] Seller Buyer
 --   Msg ([1, 0, 1], [0, 0, 1]) SellerNoBook [] Buyer Buyer2
 --   Goto [0, 0, 1] 0
 --   * BranchSt Found
---   Msg ([2, 2, 1], [1, 1, 1]) Price [] Seller Buyer
---   [Branch] Buyer
+--   Msg ([2, 2, 1], [1, 3, 1]) Price [] Seller Buyer
+--   [Branch] [1, 3, 1] Buyer
 --     * BranchSt One
---     Msg ([1, 1, 1], [3, 3, 1]) OneAccept [] Buyer Seller
---     Msg ([3, 3, 1], [1, 0, 1]) OneDate [] Seller Buyer
---     Msg ([1, 0, 1], [0, 0, 1]) OneSuccess [] Buyer Buyer2
+--     Msg ([1, 3, 1], [3, 3, 4]) OneAfford [] Buyer Buyer2
+--     Msg ([3, 3, 4], [5, 5, 4]) OneAccept [] Buyer Seller
+--     Msg ([5, 5, 4], [4, 0, 4]) OneDate [] Seller Buyer
+--     Msg ([4, 0, 4], [0, 0, 1]) OneSuccess [] Buyer Buyer2
 --     Goto [0, 0, 1] 0
 --     * BranchSt Two
---     Msg ([1, 1, 1], [4, 1, 4]) PriceToBuyer2 [] Buyer Buyer2
---     [Branch] Buyer2
+--     Msg ([1, 3, 1], [6, 3, 6]) PriceToBuyer2 [] Buyer Buyer2
+--     [Branch] [6, 3, 6] Buyer2
 --       * BranchSt NotSupport
---       Msg ([4, 1, 4], [1, 1, 1]) NotSupport [] Buyer2 Buyer
---       Msg (form (send, to1) (recv, to2)) NotSupport [] Buyer2 Buyer
---  NotSupport :: Msg Role BookSt (S6 [NotSupport,Two,Found]) '(Buyer2, End) '(Buyer, S3 [NotSupport,Two,Found])
---       Msg ([1, 1, 1], [0, 0, 1]) TwoNotBuy [] Buyer Seller
+--       Msg ([6, 3, 6], [3, 3, 1]) NotSupport [] Buyer2 Buyer
+--       Msg ([3, 3, 1], [0, 0, 1]) TwoNotBuy [] Buyer Seller
 --       Goto [0, 0, 1] 0
 --       * BranchSt Support
---       Msg ([4, 1, 4], [1, 1, 5]) SupportVal [] Buyer2 Buyer
---       [Branch] Buyer
+--       Msg ([6, 3, 6], [3, 3, 7]) SupportVal [] Buyer2 Buyer
+--       [Branch] [3, 3, 7] Buyer
 --         * BranchSt Enough
---         Msg ([1, 1, 5], [6, 6, 5]) TwoAccept [] Buyer Seller
---         Msg ([6, 6, 5], [5, 0, 5]) TwoDate [] Seller Buyer
---         Msg ([5, 0, 5], [0, 0, 1]) TwoSuccess [] Buyer Buyer2
+--         Msg ([3, 3, 7], [8, 8, 7]) TwoAccept [] Buyer Seller
+--         Msg ([8, 8, 7], [7, 0, 7]) TwoDate [] Seller Buyer
+--         Msg ([7, 0, 7], [0, 0, 1]) TwoSuccess [] Buyer Buyer2
 --         Goto [0, 0, 1] 0
 --         * BranchSt NotEnough
---         Msg ([1, 1, 5], [5, -1, 5]) TwoNotBuy1 [] Buyer Seller
---         Msg ([5, -1, 5], [-1, -1, -1]) TwoFailed [] Buyer Buyer2
+--         Msg ([3, 3, 7], [7, -1, 7]) TwoNotBuy1 [] Buyer Seller
+--         Msg ([7, -1, 7], [-1, -1, -1]) TwoFailed [] Buyer Buyer2
 --         Terminal [-1, -1, -1]

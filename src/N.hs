@@ -66,7 +66,7 @@ infixr 5 :>
 
 data Protocol eta r bst
   = (MsgOrLabel eta r) :> (Protocol eta r bst)
-  | Branch r [BranchSt eta r bst]
+  | Branch (XBranch eta) r [BranchSt eta r bst]
   | Goto (XGoto eta) Int
   | Terminal (XTerminal eta)
   deriving (Functor)
@@ -82,11 +82,12 @@ instance
 
 type family XMsg eta
 type family XLabel eta
+type family XBranch eta
 type family XGoto eta
 type family XTerminal eta
 
 type ForallX (f :: Type -> Constraint) eta =
-  (f (XMsg eta), f (XLabel eta), f (XGoto eta), f (XTerminal eta))
+  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
 
 data ProtocolError r bst
   = AtLeastTwoBranches (Protocol Creat r bst)
@@ -115,6 +116,7 @@ data Creat
 
 type instance XMsg Creat = ()
 type instance XLabel Creat = ()
+type instance XBranch Creat = ()
 type instance XGoto Creat = ()
 type instance XTerminal Creat = ()
 
@@ -122,6 +124,7 @@ data AddNums
 
 type instance XMsg AddNums = ([Int], [Int])
 type instance XLabel AddNums = [Int]
+type instance XBranch AddNums = [Int]
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
 
@@ -141,6 +144,7 @@ data Yst r bst
 
 type instance XMsg (Yst r bst) = Zst r bst
 type instance XLabel (Yst r bst) = ()
+type instance XBranch (Yst r bst) = ()
 type instance XGoto (Yst r bst) = ()
 type instance XTerminal (Yst r bst) = ()
 
@@ -155,11 +159,11 @@ foo = \case
       Label _ i -> pure (Label @(Yst r bst) () i)
     prots' <- foo prots
     pure (mol' :> prots')
-  Branch r ls -> do
+  Branch _ r ls -> do
     prots' <- forM ls $ \(BranchSt st prot) -> do
       rs <- foo prot
       pure (BranchSt st rs)
-    pure (Branch r prots')
+    pure (Branch undefined r prots')
   Goto _ i -> pure (Goto () i)
   Terminal _ -> pure (Terminal ())
 
@@ -187,10 +191,10 @@ addNums' inputNums = \case
       Label _ i -> do
         (is', ms') <- addNums' inputNums ms
         pure (is', Label inputNums i :> ms')
-  Branch r ls -> do
+  Branch is r ls -> do
     let len = length ls
     -- At least two branches.
-    when (len < 2) (throwError (AtLeastTwoBranches (Branch r ls)))
+    when (len < 2) (throwError (AtLeastTwoBranches (Branch is r ls)))
     void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ prot) -> do
       -- The first message of each branch must have the same receiver and sender.
       case getFirstMsgInfo prot of
@@ -208,7 +212,7 @@ addNums' inputNums = \case
       when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
 
     (ins, ls') <- go inputNums ls
-    pure (ins, Branch r ls')
+    pure (ins, Branch inputNums r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
 
@@ -224,7 +228,7 @@ getAllMsgInfo = \case
   msgOrLabel :> prots -> case msgOrLabel of
     Msg _ _ _ from to -> (from, to) : getAllMsgInfo prots
     _ -> getAllMsgInfo prots
-  Branch _ ls -> concatMap (\(BranchSt _ prots) -> getAllMsgInfo prots) ls
+  Branch _ _ ls -> concatMap (\(BranchSt _ prots) -> getAllMsgInfo prots) ls
   Goto _ _ -> []
   Terminal _ -> []
 
@@ -278,7 +282,7 @@ genConstraint' = \case
           Just _ -> throwError @(ProtocolError r bst) (DefLabelMultTimes lb)
           Nothing -> modify (IntMap.insert i is)
     genConstraint' prots
-  Branch _ ls -> for_ ls $ \(BranchSt _ prot) -> genConstraint' prot
+  Branch _ _ ls -> for_ ls $ \(BranchSt _ prot) -> genConstraint' prot
   gt@(Goto xs i) -> do
     gets @(IntMap [Int]) (IntMap.lookup i) >>= \case
       Nothing -> throwError (LabelUndefined gt)
@@ -318,7 +322,9 @@ replaceNums sbm = \case
           Msg (a, b) c d e f ->
             Msg (replaceList sbm a, replaceList sbm b) c d e f :> prots'
           Label a i -> Label (replaceList sbm a) i :> prots'
-  Branch r ls -> Branch r $ fmap (\(BranchSt v prots) -> BranchSt v (replaceNums sbm prots)) ls
+  Branch is r ls ->
+    Branch (replaceList sbm is) r $
+      fmap (\(BranchSt v prots) -> BranchSt v (replaceNums sbm prots)) ls
   Goto xv i -> Goto (replaceList sbm xv) i
   Terminal xv -> Terminal (replaceList sbm xv)
 
@@ -360,6 +366,6 @@ instance
   where
   pretty = \case
     msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
-    Branch r ls -> nest 2 $ "[Branch]" <+> pretty (show r) <> line <> vsep (fmap pretty ls)
+    Branch is r ls -> nest 2 $ "[Branch]" <+> pretty is <+> pretty (show r) <> line <> vsep (fmap pretty ls)
     Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
     Terminal xv -> "Terminal" <+> pretty xv
