@@ -180,11 +180,8 @@ genZst' = \case
             recvToSt = os !! fromEnum to
         bsts <- get @([bst])
         unSet <- get @(Set Int)
-        let zst =
-              Zst
-                (TList fromSt bsts)
-                (from, if sendToSt `elem` unSet then TList sendToSt bsts else Null sendToSt)
-                (to, if recvToSt `elem` unSet then TAny recvToSt else Null recvToSt)
+        let fun i (vtureFun) = if i == -1 then End else if i `elem` unSet then vtureFun i else Null i
+            zst = Zst (TList fromSt bsts) (from, fun sendToSt (flip TList bsts)) (to, fun recvToSt TAny)
         pure (Msg zst cont args from to)
       Label _ i -> pure (Label @(Yst r bst) () i)
     prots' <- genZst' prots
@@ -373,12 +370,11 @@ replaceNums sbm = \case
 piple
   :: (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol AddNums r bst)
--- (Protocol (Yst r bst) r bst)
+  -> Either (ProtocolError r bst) (Protocol (Yst r bst) r bst)
 piple prot = do
   prot' <- addNums prot
   sbm <- genSubMap prot'
-  pure $ replaceNums sbm prot'
+  pure $ genZst $ replaceNums sbm prot'
 
 instance
   ( Pretty (XMsg eta)
