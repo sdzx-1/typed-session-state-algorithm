@@ -4,6 +4,7 @@
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -32,14 +33,33 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import Prettyprinter
+import Prettyprinter.Render.String (renderString)
 
 data BranchSt eta r bst = BranchSt bst (Protocol eta r bst)
   deriving (Functor)
+
+instance
+  ( Pretty (Protocol eta r bst)
+  , Show bst
+  )
+  => Show (BranchSt eta r bst)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 data MsgOrLabel eta r
   = Msg (XMsg eta) String [String] r r
   | Label (XLabel eta) Int
   deriving (Functor)
+
+instance
+  ( Pretty (XMsg eta)
+  , Pretty (XLabel eta)
+  , Show r
+  )
+  => Show (MsgOrLabel eta r)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 infixr 5 :>
 
@@ -50,8 +70,14 @@ data Protocol eta r bst
   | Terminal (XTerminal eta)
   deriving (Functor)
 
-instance (ForallX Show eta, Show r, Show bst) => Show (Protocol eta r bst) where
-  show = ppProtocol
+instance
+  ( ForallX Pretty eta
+  , Show r
+  , Show bst
+  )
+  => Show (Protocol eta r bst)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 type family XMsg eta
 type family XLabel eta
@@ -62,7 +88,7 @@ type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XGoto eta), f (XTerminal eta))
 
 data ProtocolError r bst
-  = AtLeastTwoBranches Int [BranchSt Creat r bst]
+  = AtLeastTwoBranches (Protocol Creat r bst)
   | DefLabelMultTimes (MsgOrLabel AddNums r)
   | LabelUndefined (Protocol AddNums r bst)
   | BranchNoMsg (Protocol Creat r bst)
@@ -72,16 +98,16 @@ data ProtocolError r bst
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
-    AtLeastTwoBranches _i _ls -> "At least two branches are required"
-    DefLabelMultTimes _ -> "Defining Label multiple times"
-    LabelUndefined _ -> "Label Undefined"
-    BranchNoMsg _ -> "Branch No Msg"
-    BranchFirstMsgMustHaveTheSameReceiver _ ->
-      "The first message of each branch must have the same receiver."
-    BranchFirstMsgMustHaveTheSameSender _ ->
-      "The first message of each branch must have the same sender."
-    BranchNotNotifyAllOtherReceivers _prot ->
-      "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change."
+    AtLeastTwoBranches prot -> "At least two branches are required\n" <> show prot
+    DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
+    LabelUndefined prot -> "Label Undefined\n" <> show prot
+    BranchNoMsg prot -> "Branch No Msg\n" <> show prot
+    BranchFirstMsgMustHaveTheSameReceiver port ->
+      "The first message of each branch must have the same receiver.\n" <> show port
+    BranchFirstMsgMustHaveTheSameSender prot ->
+      "The first message of each branch must have the same sender.\n" <> show prot
+    BranchNotNotifyAllOtherReceivers prot ->
+      "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.\n" <> show prot
 
 ------------------------
 data Creat
@@ -123,8 +149,8 @@ addNums' inputNums = \case
   Branch r ls -> do
     let len = length ls
     -- At least two branches.
-    when (len < 2) (throwError (AtLeastTwoBranches len ls))
-    forM_ ls $ \(BranchSt _ prot) -> runState @(Maybe r) Nothing $ do
+    when (len < 2) (throwError (AtLeastTwoBranches (Branch r ls)))
+    void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ prot) -> do
       -- The first message of each branch must have the same receiver and sender.
       case getFirstMsgInfo prot of
         Nothing -> throwError (BranchNoMsg prot)
@@ -188,8 +214,6 @@ addNums protoc =
     . runFresh 1
     . runError @(ProtocolError r bst)
     $ (addNums' (fmap fromEnum [minBound @r .. maxBound]) protoc)
-
-----------------------------------
 
 tellSeq :: (Has (Writer (Seq a)) sig m) => [a] -> m ()
 tellSeq ls = tell (Seq.fromList ls)
@@ -266,24 +290,37 @@ piple prot = do
   sbm <- genSubMap prot'
   pure $ replaceNums sbm prot'
 
-----------------------------------
+instance
+  ( Pretty (XMsg eta)
+  , Pretty (XLabel eta)
+  , Show r
+  )
+  => Pretty (MsgOrLabel eta r)
+  where
+  pretty = \case
+    Msg xv cst args from to ->
+      hsep ["Msg", pretty xv, pretty cst, pretty args, pretty (show from), pretty (show to)]
+    Label xv i -> hsep ["Label", pretty xv, pretty i]
 
-ppProtocol :: (ForallX Show eta, Show r, Show bst) => Protocol eta r bst -> String
-ppProtocol v = case v of
-  msgOrLabel :> prot ->
-    let r1 = case msgOrLabel of
-          Msg xmsg a b c d ->
-            "Msg " ++ show xmsg ++ " " ++ a ++ " " ++ show b ++ " " ++ show c ++ " " ++ show d
-          Label xlabel i -> "Label " ++ show xlabel ++ " " ++ show i
-     in r1 ++ "\n" ++ ppProtocol prot
-  Branch r ls ->
-    "Branch "
-      ++ show r
-      ++ "\n"
-      ++ concatMap
-        ( \(BranchSt bst prot) ->
-            "BranchSt " ++ show bst ++ "\n" ++ ppProtocol prot
-        )
-        ls
-  Goto xv i -> "Goto " ++ show xv ++ " " ++ show i ++ "\n"
-  Terminal xv -> "Terminal " ++ show xv ++ "\n"
+instance
+  ( Pretty (Protocol eta r bst)
+  , Show bst
+  )
+  => Pretty (BranchSt eta r bst)
+  where
+  pretty (BranchSt bst prot) = "* BranchSt" <+> pretty (show bst) <> line <> (pretty prot)
+
+instance
+  ( ForallX Pretty eta
+  , Pretty (BranchSt eta r bst)
+  , Pretty (MsgOrLabel eta r)
+  , Show r
+  , Show bst
+  )
+  => Pretty (Protocol eta r bst)
+  where
+  pretty = \case
+    msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
+    Branch r ls -> nest 2 $ "[Branch]" <+> pretty (show r) <> line <> vsep (fmap pretty ls)
+    Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
+    Terminal xv -> "Terminal" <+> pretty xv

@@ -76,7 +76,7 @@ library
                     , containers
                     , array
                     , fused-effects
-                    , pretty
+                    , prettyprinter
 
     -- Directories containing source files.
     hs-source-dirs:   src
