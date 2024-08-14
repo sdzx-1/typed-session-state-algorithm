@@ -132,7 +132,6 @@ addNums' inputNums = \case
             Just to' ->
               when (to /= to') $
                 throwError (BranchFirstMsgMustHaveTheSameSender prot)
-
     -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
     pure (ins, Branch r ls')
