@@ -156,12 +156,12 @@ addNums' inputNums = \case
         Nothing -> throwError (BranchNoMsg prot)
         Just (from, to) -> do
           when (from /= r) $
-            throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
+            throwError (BranchFirstMsgMustHaveTheSameSender prot)
           get @(Maybe r) >>= \case
             Nothing -> put (Just to)
             Just to' ->
               when (to /= to') $
-                throwError (BranchFirstMsgMustHaveTheSameSender prot)
+                throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
       -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
       let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
       when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
@@ -312,8 +312,6 @@ instance
 
 instance
   ( ForallX Pretty eta
-  , Pretty (BranchSt eta r bst)
-  , Pretty (MsgOrLabel eta r)
   , Show r
   , Show bst
   )
