@@ -34,6 +34,7 @@ import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
+import qualified Data.Set as Set
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
 
@@ -130,15 +131,33 @@ type instance XTerminal AddNums = [Int]
 
 -- Null | [r] | s
 data T bst
-  = Null
-  | TList [bst]
-  | TAny
+  = Null Int
+  | TList Int [bst]
+  | TAny Int
+  | End
+
+instance (Show bst) => Show (T bst) where
+  show = \case
+    Null i -> show i
+    TList i ls -> show i ++ " " ++ show ls
+    TAny i -> show i ++ " s"
+    End -> "End"
 
 -- from, to1, to2:  (Int, Null | [r] | s)
-data Wst bst = Wst Int (T bst)
-
 -- (from, (r, to1), (r, to2))
-data Zst r bst = Zst (Wst bst) (r, Wst bst) (r, Wst bst)
+data Zst r bst = Zst (T bst) (r, T bst) (r, T bst)
+
+instance (Show r, Show bst) => Show (Zst r bst) where
+  show (Zst from (sender, to1) (recver, to2)) =
+    "(" ++ show from ++ " -> " ++ show to1 ++ " , " ++ show to2 ++ ") " ++ show sender ++ " -> " ++ show recver
+
+instance (Show bst, Show r) => Pretty (Zst r bst) where
+  pretty (Zst from (sender, to1) (recver, to2)) =
+    pretty (show from)
+      <+> parens (pretty (show to1) <+> "," <+> pretty (show to2))
+      <+> pretty (show sender)
+      <+> "->"
+      <+> pretty (show recver)
 
 data Yst r bst
 
@@ -148,24 +167,47 @@ type instance XBranch (Yst r bst) = ()
 type instance XGoto (Yst r bst) = ()
 type instance XTerminal (Yst r bst) = ()
 
-foo
+genZst'
   :: forall r bst sig m
-   . (Has (State [bst] :+: State (Set Int)) sig m)
+   . (Has (State [bst] :+: State (Set Int)) sig m, Enum r)
   => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
-foo = \case
+genZst' = \case
   msgOrLabel :> prots -> do
     mol' <- case msgOrLabel of
-      Msg (is, _) cont args from to -> undefined
+      Msg (is, os) cont args from to -> do
+        let fromSt = is !! fromEnum from
+            sendToSt = os !! fromEnum from
+            recvToSt = os !! fromEnum to
+        bsts <- get @([bst])
+        unSet <- get @(Set Int)
+        let zst =
+              Zst
+                (TList fromSt bsts)
+                (from, if sendToSt `elem` unSet then TList sendToSt bsts else Null sendToSt)
+                (to, if recvToSt `elem` unSet then TAny recvToSt else Null recvToSt)
+        pure (Msg zst cont args from to)
       Label _ i -> pure (Label @(Yst r bst) () i)
-    prots' <- foo prots
+    prots' <- genZst' prots
     pure (mol' :> prots')
-  Branch _ r ls -> do
+  Branch is r ls -> do
+    modify (Set.union (Set.fromList is))
+    bstBackup <- get
     prots' <- forM ls $ \(BranchSt st prot) -> do
-      rs <- foo prot
+      put (st : bstBackup)
+      rs <- genZst' prot
       pure (BranchSt st rs)
-    pure (Branch undefined r prots')
+    pure (Branch () r prots')
   Goto _ i -> pure (Goto () i)
   Terminal _ -> pure (Terminal ())
+
+genZst :: (Enum r) => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
+genZst (protocol :: Protocol AddNums r bst) =
+  snd
+    . snd
+    . run
+    . runState @[bst] []
+    . runState @(Set Int) (Set.empty)
+    $ genZst' protocol
 
 ------------------------
 
@@ -332,6 +374,7 @@ piple
   :: (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
   -> Either (ProtocolError r bst) (Protocol AddNums r bst)
+-- (Protocol (Yst r bst) r bst)
 piple prot = do
   prot' <- addNums prot
   sbm <- genSubMap prot'
