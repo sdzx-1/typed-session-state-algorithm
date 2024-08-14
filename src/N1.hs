@@ -145,6 +145,8 @@ v2 =
 --     [Branch] Buyer2
 --       * BranchSt NotSupport
 --       Msg ([4, 1, 4], [1, 1, 1]) NotSupport [] Buyer2 Buyer
+--       Msg (form (send, to1) (recv, to2)) NotSupport [] Buyer2 Buyer
+--  NotSupport :: Msg Role BookSt (S6 [NotSupport,Two,Found]) '(Buyer2, End) '(Buyer, S3 [NotSupport,Two,Found])
 --       Msg ([1, 1, 1], [0, 0, 1]) TwoNotBuy [] Buyer Seller
 --       Goto [0, 0, 1] 0
 --       * BranchSt Support

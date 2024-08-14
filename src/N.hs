@@ -33,6 +33,7 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import Data.Set (Set)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
 
@@ -123,6 +124,46 @@ type instance XMsg AddNums = ([Int], [Int])
 type instance XLabel AddNums = [Int]
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
+
+-- Null | [r] | s
+data T bst
+  = Null
+  | TList [bst]
+  | TAny
+
+-- from, to1, to2:  (Int, Null | [r] | s)
+data Wst bst = Wst Int (T bst)
+
+-- (from, (r, to1), (r, to2))
+data Zst r bst = Zst (Wst bst) (r, Wst bst) (r, Wst bst)
+
+data Yst r bst
+
+type instance XMsg (Yst r bst) = Zst r bst
+type instance XLabel (Yst r bst) = ()
+type instance XGoto (Yst r bst) = ()
+type instance XTerminal (Yst r bst) = ()
+
+foo
+  :: forall r bst sig m
+   . (Has (State [bst] :+: State (Set Int)) sig m)
+  => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
+foo = \case
+  msgOrLabel :> prots -> do
+    mol' <- case msgOrLabel of
+      Msg (is, _) cont args from to -> undefined
+      Label _ i -> pure (Label @(Yst r bst) () i)
+    prots' <- foo prots
+    pure (mol' :> prots')
+  Branch r ls -> do
+    prots' <- forM ls $ \(BranchSt st prot) -> do
+      rs <- foo prot
+      pure (BranchSt st rs)
+    pure (Branch r prots')
+  Goto _ i -> pure (Goto () i)
+  Terminal _ -> pure (Terminal ())
+
+------------------------
 
 addNums'
   :: forall r bst sig m
