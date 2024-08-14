@@ -20,9 +20,11 @@ import qualified Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
+import Control.Carrier.Reader (runReader)
 import Control.Carrier.State.Strict
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
+import Control.Effect.Reader
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList), for_)
@@ -169,7 +171,7 @@ type instance XTerminal (Yst r bst) = ()
 
 genZst'
   :: forall r bst sig m
-   . (Has (State [bst] :+: State (Set Int)) sig m, Enum r)
+   . (Has (State [bst] :+: Reader (Set Int)) sig m, Enum r)
   => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
 genZst' = \case
   msgOrLabel :> prots -> do
@@ -179,15 +181,14 @@ genZst' = \case
             sendToSt = os !! fromEnum from
             recvToSt = os !! fromEnum to
         bsts <- get @([bst])
-        unSet <- get @(Set Int)
-        let fun i (vtureFun) = if i == -1 then End else if i `elem` unSet then vtureFun i else Null i
-            zst = Zst (TList fromSt bsts) (from, fun sendToSt (flip TList bsts)) (to, fun recvToSt TAny)
+        unSet <- ask @(Set Int)
+        let fun i = if i == -1 then End else if i `elem` unSet then TAny i else Null i
+            zst = Zst (TList fromSt bsts) (from, fun sendToSt) (to, fun recvToSt)
         pure (Msg zst cont args from to)
       Label _ i -> pure (Label @(Yst r bst) () i)
     prots' <- genZst' prots
     pure (mol' :> prots')
-  Branch is r ls -> do
-    modify (Set.union (Set.fromList is))
+  Branch _ r ls -> do
     bstBackup <- get
     prots' <- forM ls $ \(BranchSt st prot) -> do
       put (st : bstBackup)
@@ -197,13 +198,25 @@ genZst' = \case
   Goto _ i -> pure (Goto () i)
   Terminal _ -> pure (Terminal ())
 
-genZst :: (Enum r) => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
-genZst (protocol :: Protocol AddNums r bst) =
+collectBranchSt :: Protocol AddNums r bst -> Set Int
+collectBranchSt = \case
+  _ :> prots -> collectBranchSt prots
+  Branch is _ ls ->
+    foldl'
+      Set.union
+      (Set.fromList is)
+      (fmap (\(BranchSt _ prot) -> collectBranchSt prot) ls)
+  _ -> Set.empty
+
+genZst
+  :: forall r bst
+   . (Enum r)
+  => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
+genZst protocol =
   snd
-    . snd
     . run
     . runState @[bst] []
-    . runState @(Set Int) (Set.empty)
+    . runReader @(Set Int) (collectBranchSt protocol)
     $ genZst' protocol
 
 ------------------------
