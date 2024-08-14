@@ -125,4 +125,37 @@ v2 =
       ]
 
 -- >>> N.piple v2
--- Left Each branch sender must send a message to all other receivers to notify the state change.
+-- Right Label [0,0,1] 0
+-- Msg ([0,0,1],[2,2,1]) Title [] Buyer Seller
+-- Branch Seller
+-- BranchSt NotFound
+-- Msg ([2,2,1],[1,0,1]) NoBook [] Seller Buyer
+-- Msg ([1,0,1],[0,0,1]) SellerNoBook [] Buyer Buyer2
+-- Goto [0,0,1] 0
+-- BranchSt Found
+-- Msg ([2,2,1],[1,1,1]) Price [] Seller Buyer
+-- Branch Buyer
+-- BranchSt One
+-- Msg ([1,1,1],[3,3,1]) OneAccept [] Buyer Seller
+-- Msg ([3,3,1],[1,0,1]) OneDate [] Seller Buyer
+-- Msg ([1,0,1],[0,0,1]) OneSuccess [] Buyer Buyer2
+-- Goto [0,0,1] 0
+-- BranchSt Two
+-- Msg ([1,1,1],[4,1,4]) PriceToBuyer2 [] Buyer Buyer2
+-- Branch Buyer2
+-- BranchSt NotSupport
+-- Msg ([4,1,4],[1,1,1]) NotSupport [] Buyer2 Buyer
+-- Msg ([1,1,1],[0,0,1]) TwoNotBuy [] Buyer Seller
+-- Goto [0,0,1] 0
+-- BranchSt Support
+-- Msg ([4,1,4],[1,1,5]) SupportVal [] Buyer2 Buyer
+-- Branch Buyer
+-- BranchSt Enough
+-- Msg ([1,1,5],[6,6,5]) TwoAccept [] Buyer Seller
+-- Msg ([6,6,5],[5,0,5]) TwoDate [] Seller Buyer
+-- Msg ([5,0,5],[0,0,1]) TwoSuccess [] Buyer Buyer2
+-- Goto [0,0,1] 0
+-- BranchSt NotEnough
+-- Msg ([1,1,5],[5,-1,5]) TwoNotBuy1 [] Buyer Seller
+-- Msg ([5,-1,5],[-1,-1,-1]) TwoFailed [] Buyer Buyer2
+-- Terminal [-1,-1,-1]

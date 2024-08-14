@@ -70,7 +70,7 @@ data ProtocolError r bst
   | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
   | BranchNotNotifyAllOtherReceivers (Protocol Creat r bst)
 
-instance Show (ProtocolError r bst) where
+instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
     AtLeastTwoBranches _i _ls -> "At least two branches are required"
     DefLabelMultTimes _ -> "Defining Label multiple times"
@@ -80,8 +80,8 @@ instance Show (ProtocolError r bst) where
       "The first message of each branch must have the same receiver."
     BranchFirstMsgMustHaveTheSameSender _ ->
       "The first message of each branch must have the same sender."
-    BranchNotNotifyAllOtherReceivers _ ->
-      "Each branch sender must send a message to all other receivers to notify the state change."
+    BranchNotNotifyAllOtherReceivers _prot ->
+      "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change."
 
 ------------------------
 data Creat
@@ -136,8 +136,8 @@ addNums' inputNums = \case
             Just to' ->
               when (to /= to') $
                 throwError (BranchFirstMsgMustHaveTheSameSender prot)
-      -- Each branch sender must send a message to all other receivers to notify the state change.
-      let receivers = L.nub $ L.sort $ r : (fmap snd $ filter ((== r) . fst) $ getAllMsgInfo prot)
+      -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
+      let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
       when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
 
     (ins, ls') <- go inputNums ls
