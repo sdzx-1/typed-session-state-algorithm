@@ -65,19 +65,19 @@ data ProtocolError r bst
   = AtLeastTwoBranches Int [BranchSt Creat r bst]
   | DefLabelMultTimes (MsgOrLabel AddNums r)
   | LabelUndefined (Protocol AddNums r bst)
-  | BranchNoMsg
-  | BranchFirstMsgMustHaveTheSameReceiver
-  | BranchFirstMsgMustHaveTheSameSender
+  | BranchNoMsg (Protocol Creat r bst)
+  | BranchFirstMsgMustHaveTheSameReceiver (Protocol Creat r bst)
+  | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
 
 instance Show (ProtocolError r bst) where
   show = \case
     AtLeastTwoBranches _i _ls -> "At least two branches are required"
     DefLabelMultTimes _ -> "Defining Label multiple times"
     LabelUndefined _ -> "Label Undefined"
-    BranchNoMsg -> "Branch No Msg"
-    BranchFirstMsgMustHaveTheSameReceiver ->
+    BranchNoMsg _ -> "Branch No Msg"
+    BranchFirstMsgMustHaveTheSameReceiver _ ->
       "The first message of each branch must have the same receiver."
-    BranchFirstMsgMustHaveTheSameSender ->
+    BranchFirstMsgMustHaveTheSameSender _ ->
       "The first message of each branch must have the same sender."
 
 ------------------------
@@ -121,13 +121,17 @@ addNums' inputNums = \case
     -- At least two branches.
     when (len < 2) (throwError (AtLeastTwoBranches len ls))
     -- The first message of each branch must have the same receiver and sender.
-    tos <- forM ls $ \(BranchSt _ prot) -> do
+    forM_ ls $ \(BranchSt _ prot) -> runState @(Maybe r) Nothing $ do
       case getFirstMsgInfo prot of
-        Nothing -> throwError @(ProtocolError r bst) BranchNoMsg
+        Nothing -> throwError (BranchNoMsg prot)
         Just (from, to) -> do
-          when (from /= r) (throwError @(ProtocolError r bst) BranchFirstMsgMustHaveTheSameReceiver)
-          pure to
-    when (any (/= head tos) tos) (throwError @(ProtocolError r bst) BranchFirstMsgMustHaveTheSameSender)
+          when (from /= r) $
+            throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
+          get @(Maybe r) >>= \case
+            Nothing -> put (Just to)
+            Just to' ->
+              when (to /= to') $
+                throwError (BranchFirstMsgMustHaveTheSameSender prot)
 
     -- Each branch sender must send a message to all other receivers to notify the state change.
     (ins, ls') <- go inputNums ls
