@@ -156,6 +156,7 @@ instance (Show r, Show bst) => Show (Zst r bst) where
 instance (Show bst, Show r) => Pretty (Zst r bst) where
   pretty (Zst from (sender, to1) (recver, to2)) =
     pretty (show from)
+      <+> "->"
       <+> parens (pretty (show to1) <+> "," <+> pretty (show to2))
       <+> pretty (show sender)
       <+> "->"
@@ -171,7 +172,7 @@ type instance XTerminal (Yst r bst) = ()
 
 genZst'
   :: forall r bst sig m
-   . (Has (State [bst] :+: Reader (Set Int)) sig m, Enum r)
+   . (Has (State [bst] :+: State (Set Int) :+: Reader (Set Int)) sig m, Enum r)
   => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
 genZst' = \case
   msgOrLabel :> prots -> do
@@ -182,14 +183,30 @@ genZst' = \case
             recvToSt = os !! fromEnum to
         bsts <- get @([bst])
         unSet <- ask @(Set Int)
-        let fun i = if i == -1 then End else if i `elem` unSet then TList i bsts else Null i
+        lbs <- get @(Set Int)
+        let fun i =
+              if i == -1
+                then End
+                else
+                  if i `elem` unSet
+                    then
+                      if isMsg prots
+                        then
+                          -- if (i `Set.member` lbs)
+                          --   then (TAny i)
+                          --   else TList i bsts
+                          TList i bsts
+                        else TAny i
+                    else Null i
             zst =
               Zst
                 (if fromSt `elem` unSet then (TList fromSt bsts) else Null fromSt)
                 (from, fun sendToSt)
                 (to, fun recvToSt)
         pure (Msg zst cont args from to)
-      Label _ i -> pure (Label @(Yst r bst) () i)
+      Label is i -> do
+        modify (Set.union (Set.fromList is))
+        pure (Label @(Yst r bst) () i)
     prots' <- genZst' prots
     pure (mol' :> prots')
   Branch _ r ls -> do
@@ -201,6 +218,10 @@ genZst' = \case
     pure (Branch () r prots')
   Goto _ i -> pure (Goto () i)
   Terminal _ -> pure (Terminal ())
+
+isMsg :: Protocol AddNums r bst -> Bool
+isMsg (Msg _ _ _ _ _ :> _) = True
+isMsg _ = False
 
 collectBranchSt :: Protocol AddNums r bst -> Set Int
 collectBranchSt = \case
@@ -218,8 +239,10 @@ genZst
   => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
 genZst protocol =
   snd
+    . snd
     . run
     . runState @[bst] []
+    . runState @(Set Int) Set.empty
     . runReader @(Set Int) (collectBranchSt protocol)
     $ genZst' protocol
 
@@ -402,7 +425,7 @@ instance
   where
   pretty = \case
     Msg xv cst args from to ->
-      hsep ["Msg", pretty xv, pretty cst, pretty args, pretty (show from), pretty (show to)]
+      hsep ["Msg", angles (pretty xv), pretty cst, pretty args, pretty (show from), pretty (show to)]
     Label xv i -> hsep ["Label", pretty xv, pretty i]
 
 instance
