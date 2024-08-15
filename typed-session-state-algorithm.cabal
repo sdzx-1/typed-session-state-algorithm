@@ -63,7 +63,10 @@ library
                     , Render
                     , Piple
                     , N
-                    , N1
+                    , N.N2
+                    , N.N1
+                    , N.Type
+                    , N.Utils
 
     -- Modules included in this library but not exported.
     -- other-modules:

@@ -91,11 +91,11 @@ type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
 
 type XTraverse m eta gama r bst =
-  ( XMsg eta -> m (XMsg gama)
-  , XLabel eta -> m (XLabel gama)
-  , XBranch eta -> m (XBranch gama)
-  , XGoto eta -> m (XGoto gama)
-  , XTerminal eta -> m (XTerminal gama)
+  ( (XMsg eta, Protocol eta r bst) -> m (XMsg gama)
+  , (XLabel eta, Protocol eta r bst) -> m (XLabel gama)
+  , (XBranch eta, Protocol eta r bst) -> m (XBranch gama)
+  , (XGoto eta, Protocol eta r bst) -> m (XGoto gama)
+  , (XTerminal eta, Protocol eta r bst) -> m (XTerminal gama)
   )
 
 traverse
@@ -103,28 +103,28 @@ traverse
   => XTraverse m eta gama r bst
   -> Protocol eta r bst
   -> m (Protocol gama r bst)
-traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
+traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
       Msg xv a b c d -> do
-        xv' <- xmsg xv
+        xv' <- xmsg (xv, prot)
         pure (Msg xv' a b c d)
       Label xv i -> do
-        xv' <- xlabel xv
+        xv' <- xlabel (xv, prot)
         pure (Label xv' i)
     prots' <- traverse xt prots
     pure (res :> prots')
   Branch xv r ls -> do
-    xv' <- xbranch xv
-    ls' <- forM ls $ \(BranchSt bst prot) -> do
-      prot' <- traverse xt prot
+    xv' <- xbranch (xv, prot)
+    ls' <- forM ls $ \(BranchSt bst prot1) -> do
+      prot' <- traverse xt prot1
       pure (BranchSt bst prot')
     pure (Branch xv' r ls')
   Goto xv i -> do
-    xv' <- xgoto xv
+    xv' <- xgoto (xv, prot)
     pure (Goto xv' i)
   Terminal xv -> do
-    xv' <- xterminal xv
+    xv' <- xterminal (xv, prot)
     pure (Terminal xv')
 
 data ProtocolError r bst
@@ -386,11 +386,11 @@ replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
 
 replXTraverse :: C.SubMap -> XTraverse Identity AddNums AddNums r bst
 replXTraverse sbm =
-  ( \(a, b) -> pure $ (replaceList sbm a, replaceList sbm b)
-  , pure . replaceList sbm
-  , pure . replaceList sbm
-  , pure . replaceList sbm
-  , pure . replaceList sbm
+  ( \((a, b), _) -> pure $ (replaceList sbm a, replaceList sbm b)
+  , pure . replaceList sbm . fst
+  , pure . replaceList sbm . fst
+  , pure . replaceList sbm . fst
+  , pure . replaceList sbm . fst
   )
 
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst

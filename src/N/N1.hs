@@ -1,9 +1,10 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module N1 where
+module N.N1 where
 
-import N (Creat, Protocol)
-import qualified N
+import N.N2
+import N.Type (Creat, Protocol)
+import qualified N.Type as N
 
 pattern Msg :: String -> [String] -> r -> r -> N.MsgOrLabel Creat r
 pattern Msg a b c d = N.Msg () a b c d
@@ -49,7 +50,14 @@ v1 =
             :> Terminal
       ]
 
--- >>> error $ show (N.piple v1)
+-- k = show $ piple v1
+
+-- >>> error $ show (piple v1)
+-- No instance for `Pretty PingPong' arising from a use of `show'
+-- In the second argument of `($)', namely `show (piple v1)'
+-- In the expression: error $ show (piple v1)
+-- In an equation for `it_ay6F': it_ay6F = error $ show (piple v1)
+
 -- Right Label () 0
 -- [Branch] () Client
 --   * BranchSt True

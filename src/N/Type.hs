@@ -1,0 +1,228 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeAbstractions #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+module N.Type where
+
+import Control.Monad
+import Data.Kind (Constraint, Type)
+import Prettyprinter
+import Prettyprinter.Render.String (renderString)
+import Prelude hiding (traverse)
+
+type family XMsg eta
+type family XLabel eta
+type family XBranch eta
+type family XGoto eta
+type family XTerminal eta
+
+-- | ForallX
+type ForallX (f :: Type -> Constraint) eta =
+  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
+
+-- | BranchSt
+data BranchSt eta r bst = BranchSt bst (Protocol eta r bst)
+  deriving (Functor)
+
+instance
+  ( Pretty (Protocol eta r bst)
+  , Show bst
+  )
+  => Pretty (BranchSt eta r bst)
+  where
+  pretty (BranchSt bst prot) = "* BranchSt" <+> pretty (show bst) <> line <> (pretty prot)
+
+instance
+  ( Pretty (Protocol eta r bst)
+  , Show bst
+  )
+  => Show (BranchSt eta r bst)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
+
+-- | MsgOrLabel
+data MsgOrLabel eta r
+  = Msg (XMsg eta) String [String] r r
+  | Label (XLabel eta) Int
+  deriving (Functor)
+
+instance
+  ( Pretty (XMsg eta)
+  , Pretty (XLabel eta)
+  , Show r
+  )
+  => Pretty (MsgOrLabel eta r)
+  where
+  pretty = \case
+    Msg xv cst args from to ->
+      hsep ["Msg", angles (pretty xv), pretty cst, pretty args, pretty (show from), pretty (show to)]
+    Label xv i -> hsep ["Label", pretty xv, pretty i]
+
+instance
+  ( Pretty (XMsg eta)
+  , Pretty (XLabel eta)
+  , Show r
+  )
+  => Show (MsgOrLabel eta r)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
+
+infixr 5 :>
+
+-- | Protocol
+data Protocol eta r bst
+  = (MsgOrLabel eta r) :> (Protocol eta r bst)
+  | Branch (XBranch eta) r [BranchSt eta r bst]
+  | Goto (XGoto eta) Int
+  | Terminal (XTerminal eta)
+  deriving (Functor)
+
+instance
+  ( ForallX Pretty eta
+  , Show r
+  , Show bst
+  )
+  => Pretty (Protocol eta r bst)
+  where
+  pretty = \case
+    msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
+    Branch is r ls -> nest 2 $ "[Branch]" <+> pretty is <+> pretty (show r) <> line <> vsep (fmap pretty ls)
+    Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
+    Terminal xv -> "Terminal" <+> pretty xv
+
+instance
+  ( ForallX Pretty eta
+  , Show r
+  , Show bst
+  )
+  => Show (Protocol eta r bst)
+  where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
+
+-- | XTraverse
+type XTraverse m eta gama r bst =
+  ( (XMsg eta, Protocol eta r bst) -> m (XMsg gama)
+  , (XLabel eta, Protocol eta r bst) -> m (XLabel gama)
+  , (XBranch eta, Protocol eta r bst)
+    -> m
+        ( XBranch gama
+        , m (Protocol gama r bst) -> m (Protocol gama r bst)
+        )
+  , (XGoto eta, Protocol eta r bst) -> m (XGoto gama)
+  , (XTerminal eta, Protocol eta r bst) -> m (XTerminal gama)
+  )
+
+-- | xtraverse
+xtraverse
+  :: (Monad m)
+  => XTraverse m eta gama r bst
+  -> Protocol eta r bst
+  -> m (Protocol gama r bst)
+xtraverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
+  msgOrLabel :> prots -> do
+    res <- case msgOrLabel of
+      Msg xv a b c d -> do
+        xv' <- xmsg (xv, prot)
+        pure (Msg xv' a b c d)
+      Label xv i -> do
+        xv' <- xlabel (xv, prot)
+        pure (Label xv' i)
+    prots' <- xtraverse xt prots
+    pure (res :> prots')
+  Branch xv r ls -> do
+    (xv', wrapper) <- xbranch (xv, prot)
+    ls' <- forM ls $ \(BranchSt bst prot1) -> do
+      prot' <- wrapper $ xtraverse xt prot1
+      pure (BranchSt bst prot')
+    pure (Branch xv' r ls')
+  Goto xv i -> do
+    xv' <- xgoto (xv, prot)
+    pure (Goto xv' i)
+  Terminal xv -> do
+    xv' <- xterminal (xv, prot)
+    pure (Terminal xv')
+
+-- | XFold
+type XFold m eta r bst =
+  ( (XMsg eta, Protocol eta r bst) -> m ()
+  , (XLabel eta, Protocol eta r bst) -> m ()
+  , (XBranch eta, Protocol eta r bst) -> m (m () -> m ())
+  , (XGoto eta, Protocol eta r bst) -> m ()
+  , (XTerminal eta, Protocol eta r bst) -> m ()
+  )
+
+-- | xfold
+xfold :: (Monad m) => XFold m eta r bst -> Protocol eta r bst -> m ()
+xfold xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
+  msgOrLabel :> prots -> do
+    case msgOrLabel of
+      Msg xv _ _ _ _ -> xmsg (xv, prot)
+      Label xv _ -> xlabel (xv, prot)
+    xfold xt prots
+  Branch xv _ ls -> do
+    wrapper <- xbranch (xv, prot)
+    forM_ ls $ \(BranchSt _ prot1) -> wrapper $ xfold xt prot1
+  Goto xv _ -> xgoto (xv, prot)
+  Terminal xv -> xterminal (xv, prot)
+
+-- | ProtocolError
+data ProtocolError r bst
+  = AtLeastTwoBranches (Protocol Creat r bst)
+  | DefLabelMultTimes (Protocol (GenConst r) r bst)
+  | LabelUndefined (Protocol (GenConst r) r bst)
+  | BranchNoMsg (Protocol Creat r bst)
+  | BranchFirstMsgMustHaveTheSameReceiver (Protocol Creat r bst)
+  | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
+  | BranchNotNotifyAllOtherReceivers (Protocol Creat r bst)
+
+instance (Show r, Show bst, Pretty r) => Show (ProtocolError r bst) where
+  show = \case
+    AtLeastTwoBranches prot -> "At least two branches are required\n" <> show prot
+    DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
+    LabelUndefined prot -> "Label Undefined\n" <> show prot
+    BranchNoMsg prot -> "Branch No Msg\n" <> show prot
+    BranchFirstMsgMustHaveTheSameReceiver port ->
+      "The first message of each branch must have the same receiver.\n" <> show port
+    BranchFirstMsgMustHaveTheSameSender prot ->
+      "The first message of each branch must have the same sender.\n" <> show prot
+    BranchNotNotifyAllOtherReceivers prot ->
+      "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.\n" <> show prot
+
+------------------------
+data Creat
+
+type instance XMsg Creat = ()
+type instance XLabel Creat = ()
+type instance XBranch Creat = ()
+type instance XGoto Creat = ()
+type instance XTerminal Creat = ()
+
+data AddNums
+
+type instance XMsg AddNums = ([Int], [Int])
+type instance XLabel AddNums = [Int]
+type instance XBranch AddNums = [Int]
+type instance XGoto AddNums = [Int]
+type instance XTerminal AddNums = [Int]
+
+data GenConst r
+
+type instance XMsg (GenConst r) = (([Int], [Int]), (r, r))
+type instance XLabel (GenConst r) = ([Int], Int)
+type instance XBranch (GenConst r) = [Int]
+type instance XGoto (GenConst r) = ([Int], Int)
+type instance XTerminal (GenConst r) = [Int]
+
+------------------------
