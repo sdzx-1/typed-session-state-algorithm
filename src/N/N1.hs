@@ -5,6 +5,7 @@ module N.N1 where
 import N.N2
 import N.Type (Creat, Protocol)
 import qualified N.Type as N
+import Prettyprinter
 
 pattern Msg :: String -> [String] -> r -> r -> N.MsgOrLabel Creat r
 pattern Msg a b c d = N.Msg () a b c d
@@ -34,6 +35,9 @@ pattern Terminal = N.Terminal ()
 data PingPong = Client | Server | Counter
   deriving (Show, Eq, Ord, Enum, Bounded)
 
+instance Pretty PingPong where
+  pretty = pretty . show
+
 v1 :: Protocol Creat PingPong Bool
 v1 =
   Label 0
@@ -50,13 +54,18 @@ v1 =
             :> Terminal
       ]
 
--- k = show $ piple v1
-
 -- >>> error $ show (piple v1)
--- No instance for `Pretty PingPong' arising from a use of `show'
--- In the second argument of `($)', namely `show (piple v1)'
--- In the expression: error $ show (piple v1)
--- In an equation for `it_ay6F': it_ay6F = error $ show (piple v1)
+-- Right Label ([0, 0, 1], 0) 0
+-- [Branch] [0, 0, 1] Client
+--   * BranchSt True
+--   Msg <(([0, 0, 1], [2, 2, 1]), (Client, Server))> Ping [] Client Server
+--   Msg <(([2, 2, 1], [1, 0, 1]), (Server, Client))> Pong [] Server Client
+--   Msg <(([1, 0, 1], [0, 0, 1]), (Client, Counter))> Add [] Client Counter
+--   Goto ([0, 0, 1], 0) 0
+--   * BranchSt False
+--   Msg <(([0, 0, 1], [1, -1, 1]), (Client, Server))> Stop [] Client Server
+--   Msg <(([1, -1, 1], [-1, -1, -1]), (Client, Counter))> AStop [] Client Counter
+--   Terminal [-1, -1, -1]
 
 -- Right Label () 0
 -- [Branch] () Client
