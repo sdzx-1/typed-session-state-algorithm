@@ -74,6 +74,7 @@ data Protocol eta r bst
   | Branch (XBranch eta) r [BranchSt eta r bst]
   | Goto (XGoto eta) Int
   | Terminal (XTerminal eta)
+  | Protocol (XProtocol eta)
   deriving (Functor)
 
 instance
@@ -90,9 +91,10 @@ type family XLabel eta
 type family XBranch eta
 type family XGoto eta
 type family XTerminal eta
+type family XProtocol eta
 
 type ForallX (f :: Type -> Constraint) eta =
-  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
+  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta), f (XProtocol eta))
 
 type XTraverse m eta gama r bst =
   ( XMsg eta -> m (XMsg gama)
@@ -100,6 +102,7 @@ type XTraverse m eta gama r bst =
   , XBranch eta -> m (XBranch gama)
   , XGoto eta -> m (XGoto gama)
   , XTerminal eta -> m (XTerminal gama)
+  , XProtocol eta -> m (XProtocol gama)
   )
 
 traverse
@@ -107,7 +110,7 @@ traverse
   => XTraverse m eta gama r bst
   -> Protocol eta r bst
   -> m (Protocol gama r bst)
-traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
+traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal, xprotocol) = \case
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
       Msg xv a b c d -> do
@@ -130,6 +133,9 @@ traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
   Terminal xv -> do
     xv' <- xterminal xv
     pure (Terminal xv')
+  Protocol xv -> do
+    xv' <- xprotocol xv
+    pure (Protocol xv')
 
 data ProtocolError r bst
   = AtLeastTwoBranches (Protocol Creat r bst)
@@ -161,6 +167,7 @@ type instance XLabel Creat = ()
 type instance XBranch Creat = ()
 type instance XGoto Creat = ()
 type instance XTerminal Creat = ()
+type instance XProtocol Creat = ()
 
 data AddNums
 
@@ -169,6 +176,7 @@ type instance XLabel AddNums = [Int]
 type instance XBranch AddNums = [Int]
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
+type instance XProtocol AddNums = ()
 
 -- Null | [r] | s
 data T bst
@@ -257,6 +265,32 @@ addNums' inputNums = \case
     pure (ins, Branch inputNums r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
+  Protocol _ -> pure (inputNums, Protocol ())
+
+addNumsXTraverse
+  :: forall r bst sig m
+   . ( Has (Fresh :+: State [Int] :+: Error (ProtocolError r bst)) sig m
+     , Enum r
+     , Bounded r
+     , Eq r
+     , Ord r
+     )
+  => XTraverse m Creat AddNums r bst
+addNumsXTraverse =
+  ( \_ -> do
+      i <- fresh
+      let tmp = [minBound @r .. maxBound]
+          sized = length tmp
+          nums = fmap (\x -> i * sized + fromEnum x) tmp
+      inNums <- get
+      put nums
+      pure (inNums, nums)
+  , const get
+  , const get
+  , const get
+  , const get
+  , const (pure ())
+  )
 
 getFirstMsgInfo :: Protocol eta r bst -> Maybe (r, r)
 getFirstMsgInfo = \case
@@ -273,6 +307,7 @@ getAllMsgInfo = \case
   Branch _ _ ls -> concatMap (\(BranchSt _ prots) -> getAllMsgInfo prots) ls
   Goto _ _ -> []
   Terminal _ -> []
+  Protocol _ -> []
 
 go
   :: forall r bst sig m
@@ -330,6 +365,7 @@ genConstraint' = \case
       Nothing -> throwError (LabelUndefined gt)
       Just ls -> tellSeq $ zipWith C.Constraint xs ls
   Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
+  Protocol _ -> pure ()
 
 compressSubMap :: C.SubMap -> C.SubMap
 compressSubMap sbm' =
@@ -363,6 +399,7 @@ replXTraverse sbm =
   , pure . replaceList sbm
   , pure . replaceList sbm
   , pure . replaceList sbm
+  , const $ pure ()
   )
 
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
@@ -371,11 +408,11 @@ replaceNums sbm prot = runIdentity $ traverse (replXTraverse sbm) prot
 piple
   :: (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol (Yst r bst) r bst)
+  -> Either (ProtocolError r bst) (Protocol AddNums r bst)
 piple prot = do
   prot' <- addNums prot
   sbm <- genSubMap prot'
-  pure $ genZst $ replaceNums sbm prot'
+  pure $ replaceNums sbm prot'
 
 instance
   ( Pretty (XMsg eta)
@@ -409,80 +446,81 @@ instance
     Branch is r ls -> nest 2 $ "[Branch]" <+> pretty is <+> pretty (show r) <> line <> vsep (fmap pretty ls)
     Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
     Terminal xv -> "Terminal" <+> pretty xv
+    Protocol xv -> "Protocol" <+> pretty xv
 
 ------------------------------------------------
-genZst'
-  :: forall r bst sig m
-   . (Has (State [bst] :+: State (Set Int) :+: Reader (Set Int)) sig m, Enum r)
-  => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
-genZst' = \case
-  msgOrLabel :> prots -> do
-    mol' <- case msgOrLabel of
-      Msg (is, os) cont args from to -> do
-        let fromSt = is !! fromEnum from
-            sendToSt = os !! fromEnum from
-            recvToSt = os !! fromEnum to
-        bsts <- get @([bst])
-        unSet <- ask @(Set Int)
-        lbs <- get @(Set Int)
-        let fun i =
-              if i == -1
-                then End
-                else
-                  if i `elem` unSet
-                    then
-                      if isMsg prots
-                        then
-                          -- if (i `Set.member` lbs)
-                          --   then (TAny i)
-                          --   else TList i bsts
-                          TList i bsts
-                        else TAny i
-                    else Null i
-            zst =
-              Zst
-                (if fromSt `elem` unSet then (TList fromSt bsts) else Null fromSt)
-                (from, fun sendToSt)
-                (to, fun recvToSt)
-        pure (Msg zst cont args from to)
-      Label is i -> do
-        modify (Set.union (Set.fromList is))
-        pure (Label @(Yst r bst) () i)
-    prots' <- genZst' prots
-    pure (mol' :> prots')
-  Branch _ r ls -> do
-    bstBackup <- get
-    prots' <- forM ls $ \(BranchSt st prot) -> do
-      put (st : bstBackup)
-      rs <- genZst' prot
-      pure (BranchSt st rs)
-    pure (Branch () r prots')
-  Goto _ i -> pure (Goto () i)
-  Terminal _ -> pure (Terminal ())
+-- genZst'
+--   :: forall r bst sig m
+--    . (Has (State [bst] :+: State (Set Int) :+: Reader (Set Int)) sig m, Enum r)
+--   => Protocol AddNums r bst -> m (Protocol (Yst r bst) r bst)
+-- genZst' = \case
+--   msgOrLabel :> prots -> do
+--     mol' <- case msgOrLabel of
+--       Msg (is, os) cont args from to -> do
+--         let fromSt = is !! fromEnum from
+--             sendToSt = os !! fromEnum from
+--             recvToSt = os !! fromEnum to
+--         bsts <- get @([bst])
+--         unSet <- ask @(Set Int)
+--         lbs <- get @(Set Int)
+--         let fun i =
+--               if i == -1
+--                 then End
+--                 else
+--                   if i `elem` unSet
+--                     then
+--                       if isMsg prots
+--                         then
+--                           -- if (i `Set.member` lbs)
+--                           --   then (TAny i)
+--                           --   else TList i bsts
+--                           TList i bsts
+--                         else TAny i
+--                     else Null i
+--             zst =
+--               Zst
+--                 (if fromSt `elem` unSet then (TList fromSt bsts) else Null fromSt)
+--                 (from, fun sendToSt)
+--                 (to, fun recvToSt)
+--         pure (Msg zst cont args from to)
+--       Label is i -> do
+--         modify (Set.union (Set.fromList is))
+--         pure (Label @(Yst r bst) () i)
+--     prots' <- genZst' prots
+--     pure (mol' :> prots')
+--   Branch _ r ls -> do
+--     bstBackup <- get
+--     prots' <- forM ls $ \(BranchSt st prot) -> do
+--       put (st : bstBackup)
+--       rs <- genZst' prot
+--       pure (BranchSt st rs)
+--     pure (Branch () r prots')
+--   Goto _ i -> pure (Goto () i)
+--   Terminal _ -> pure (Terminal ())
 
-isMsg :: Protocol AddNums r bst -> Bool
-isMsg (Msg _ _ _ _ _ :> _) = True
-isMsg _ = False
+-- isMsg :: Protocol AddNums r bst -> Bool
+-- isMsg (Msg _ _ _ _ _ :> _) = True
+-- isMsg _ = False
 
-collectBranchSt :: Protocol AddNums r bst -> Set Int
-collectBranchSt = \case
-  _ :> prots -> collectBranchSt prots
-  Branch is _ ls ->
-    foldl'
-      Set.union
-      (Set.fromList is)
-      (fmap (\(BranchSt _ prot) -> collectBranchSt prot) ls)
-  _ -> Set.empty
+-- collectBranchSt :: Protocol AddNums r bst -> Set Int
+-- collectBranchSt = \case
+--   _ :> prots -> collectBranchSt prots
+--   Branch is _ ls ->
+--     foldl'
+--       Set.union
+--       (Set.fromList is)
+--       (fmap (\(BranchSt _ prot) -> collectBranchSt prot) ls)
+--   _ -> Set.empty
 
-genZst
-  :: forall r bst
-   . (Enum r)
-  => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
-genZst protocol =
-  snd
-    . snd
-    . run
-    . runState @[bst] []
-    . runState @(Set Int) Set.empty
-    . runReader @(Set Int) (collectBranchSt protocol)
-    $ genZst' protocol
+-- genZst
+--   :: forall r bst
+--    . (Enum r)
+--   => Protocol AddNums r bst -> Protocol (Yst r bst) r bst
+-- genZst protocol =
+--   snd
+--     . snd
+--     . run
+--     . runState @[bst] []
+--     . runState @(Set Int) Set.empty
+--     . runReader @(Set Int) (collectBranchSt protocol)
+--     $ genZst' protocol
