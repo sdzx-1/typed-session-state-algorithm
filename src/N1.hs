@@ -54,11 +54,11 @@ v1 =
 -- [Branch] () Client
 --   * BranchSt True
 --   Msg <0 [True] -> (2 , 2) Client -> Server> Ping [] Client Server
---   Msg <2 -> (0 s , 1 s) Server -> Client> Pong [] Server Client
+--   Msg <2 -> (0 [True] , 1 [True]) Server -> Client> Pong [] Server Client
 --   Msg <1 [True] -> (0 s , 1 s) Client -> Counter> Add [] Client Counter
 --   Goto () 0
 --   * BranchSt False
---   Msg <0 [False] -> (1 s , End) Client -> Server> Stop [] Client Server
+--   Msg <0 [False] -> (1 [False] , End) Client -> Server> Stop [] Client Server
 --   Msg <1 [False] -> (End , End) Client -> Counter> AStop [] Client Counter
 --   Terminal ()
 

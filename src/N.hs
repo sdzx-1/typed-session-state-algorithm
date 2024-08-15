@@ -28,6 +28,7 @@ import Control.Effect.Reader
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList), for_)
+import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Constraint, Type)
@@ -100,7 +101,11 @@ type XTrans m eta gama r bst =
   , XTerminal eta -> m (XTerminal gama)
   )
 
-trans :: (Monad m) => XTrans m eta gama r bst -> Protocol eta r bst -> m (Protocol gama r bst)
+trans
+  :: (Monad m)
+  => XTrans m eta gama r bst
+  -> Protocol eta r bst
+  -> m (Protocol gama r bst)
 trans xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
@@ -427,19 +432,17 @@ genSubMap protc =
 replaceList :: C.SubMap -> [Int] -> [Int]
 replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
 
+replXTrans :: C.SubMap -> XTrans Identity AddNums AddNums r bst
+replXTrans sbm =
+  ( \(a, b) -> pure $ (replaceList sbm a, replaceList sbm b)
+  , pure . replaceList sbm
+  , pure . replaceList sbm
+  , pure . replaceList sbm
+  , pure . replaceList sbm
+  )
+
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
-replaceNums sbm = \case
-  msgOrLabel :> prots ->
-    let prots' = replaceNums sbm prots
-     in case msgOrLabel of
-          Msg (a, b) c d e f ->
-            Msg (replaceList sbm a, replaceList sbm b) c d e f :> prots'
-          Label a i -> Label (replaceList sbm a) i :> prots'
-  Branch is r ls ->
-    Branch (replaceList sbm is) r $
-      fmap (\(BranchSt v prots) -> BranchSt v (replaceNums sbm prots)) ls
-  Goto xv i -> Goto (replaceList sbm xv) i
-  Terminal xv -> Terminal (replaceList sbm xv)
+replaceNums sbm prot = runIdentity $ trans (replXTrans sbm) prot
 
 piple
   :: (Enum r, Bounded r, Eq r, Ord r)
