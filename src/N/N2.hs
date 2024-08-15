@@ -26,7 +26,6 @@ import Control.Effect.Error
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList))
-import Data.Functor.Identity (Identity (runIdentity))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import qualified Data.List as L
