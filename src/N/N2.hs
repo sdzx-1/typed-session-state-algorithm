@@ -135,9 +135,6 @@ replXTraverse sbm =
   , pure . replaceList sbm . fst
   )
 
-replaceNums :: C.SubMap -> Protocol (GenConst r) r bst -> Protocol (GenConst r) r bst
-replaceNums sbm prot = runIdentity $ xtraverse (replXTraverse sbm) prot
-
 piple'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
