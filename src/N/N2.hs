@@ -139,15 +139,8 @@ replaceNums :: C.SubMap -> Protocol (GenConst r) r bst -> Protocol (GenConst r) 
 replaceNums sbm prot = runIdentity $ xtraverse (replXTraverse sbm) prot
 
 piple'
-  :: ( Has
-        ( State (IntMap [Int])
-            :+: Writer (Seq C.Constraint)
-            :+: Error (ProtocolError r bst)
-            :+: Fresh
-            :+: State [Int]
-        )
-        sig
-        m
+  :: forall r bst sig m
+   . ( Has (Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      , Eq r
@@ -156,31 +149,23 @@ piple'
   => Protocol Creat r bst
   -> m (Protocol (GenConst r) r bst)
 piple' prot = do
-  prot' <- xtraverse addNumsXTraverse prot
+  prot' <-
+    fmap (snd . snd)
+      . runFresh 1
+      . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
+      $ xtraverse addNumsXTraverse prot
   prot'' <- xtraverse toGenConstrXTraverse prot'
-  (constraintList, _) <- listen @(Seq C.Constraint) $ xfold genConstrXFold prot''
+  (constraintList, _) <-
+    runWriter @(Seq C.Constraint)
+      . runState @(IntMap [Int]) (IntMap.empty)
+      $ xfold genConstrXFold prot''
   let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
   xtraverse (replXTraverse sbm) prot''
 
-runPiple'
-  :: (Enum r, Bounded r, Ord r)
-  => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol (GenConst r) r bst)
-runPiple' (protocol :: Protocol Creat r bst) =
-  snd
-    . snd
-    . snd
-    . snd
-    . run
-    . runFresh 1
-    . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
-    . runWriter @(Seq C.Constraint)
-    . runState @(IntMap [Int]) (IntMap.empty)
-    . runError @(ProtocolError r bst)
-    $ (piple' protocol)
-
 piple
-  :: (Enum r, Bounded r, Eq r, Ord r)
+  :: forall r bst
+   . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
   -> Either (ProtocolError r bst) (Protocol (GenConst r) r bst)
-piple = runPiple'
+piple protocol =
+  run $ runError @(ProtocolError r bst) $ (piple' protocol)
