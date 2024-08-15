@@ -20,11 +20,9 @@ import qualified Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
-import Control.Carrier.Reader (runReader)
 import Control.Carrier.State.Strict
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
-import Control.Effect.Reader
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList), for_)
@@ -36,8 +34,6 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
 import Prelude hiding (traverse)
@@ -74,7 +70,6 @@ data Protocol eta r bst
   | Branch (XBranch eta) r [BranchSt eta r bst]
   | Goto (XGoto eta) Int
   | Terminal (XTerminal eta)
-  | Protocol (XProtocol eta)
   deriving (Functor)
 
 instance
@@ -91,10 +86,9 @@ type family XLabel eta
 type family XBranch eta
 type family XGoto eta
 type family XTerminal eta
-type family XProtocol eta
 
 type ForallX (f :: Type -> Constraint) eta =
-  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta), f (XProtocol eta))
+  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
 
 type XTraverse m eta gama r bst =
   ( XMsg eta -> m (XMsg gama)
@@ -102,7 +96,6 @@ type XTraverse m eta gama r bst =
   , XBranch eta -> m (XBranch gama)
   , XGoto eta -> m (XGoto gama)
   , XTerminal eta -> m (XTerminal gama)
-  , XProtocol eta -> m (XProtocol gama)
   )
 
 traverse
@@ -110,7 +103,7 @@ traverse
   => XTraverse m eta gama r bst
   -> Protocol eta r bst
   -> m (Protocol gama r bst)
-traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal, xprotocol) = \case
+traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
       Msg xv a b c d -> do
@@ -133,9 +126,6 @@ traverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal, xprotocol) = \case
   Terminal xv -> do
     xv' <- xterminal xv
     pure (Terminal xv')
-  Protocol xv -> do
-    xv' <- xprotocol xv
-    pure (Protocol xv')
 
 data ProtocolError r bst
   = AtLeastTwoBranches (Protocol Creat r bst)
@@ -167,7 +157,14 @@ type instance XLabel Creat = ()
 type instance XBranch Creat = ()
 type instance XGoto Creat = ()
 type instance XTerminal Creat = ()
-type instance XProtocol Creat = ()
+
+data Check r bst
+
+type instance XMsg (Check r bst) = ()
+type instance XLabel (Check r bst) = ()
+type instance XBranch (Check r bst) = (r, [BranchSt Creat r bst])
+type instance XGoto (Check r bst) = ()
+type instance XTerminal (Check r bst) = ()
 
 data AddNums
 
@@ -176,7 +173,6 @@ type instance XLabel AddNums = [Int]
 type instance XBranch AddNums = [Int]
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
-type instance XProtocol AddNums = ()
 
 -- Null | [r] | s
 data T bst
@@ -265,7 +261,6 @@ addNums' inputNums = \case
     pure (ins, Branch inputNums r ls')
   Goto _ i -> pure (inputNums, Goto inputNums i)
   Terminal _ -> pure (inputNums, Terminal inputNums)
-  Protocol _ -> pure (inputNums, Protocol ())
 
 addNumsXTraverse
   :: forall r bst sig m
@@ -289,7 +284,6 @@ addNumsXTraverse =
   , const get
   , const get
   , const get
-  , const (pure ())
   )
 
 getFirstMsgInfo :: Protocol eta r bst -> Maybe (r, r)
@@ -307,7 +301,6 @@ getAllMsgInfo = \case
   Branch _ _ ls -> concatMap (\(BranchSt _ prots) -> getAllMsgInfo prots) ls
   Goto _ _ -> []
   Terminal _ -> []
-  Protocol _ -> []
 
 go
   :: forall r bst sig m
@@ -365,7 +358,6 @@ genConstraint' = \case
       Nothing -> throwError (LabelUndefined gt)
       Just ls -> tellSeq $ zipWith C.Constraint xs ls
   Terminal xs -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
-  Protocol _ -> pure ()
 
 compressSubMap :: C.SubMap -> C.SubMap
 compressSubMap sbm' =
@@ -399,7 +391,6 @@ replXTraverse sbm =
   , pure . replaceList sbm
   , pure . replaceList sbm
   , pure . replaceList sbm
-  , const $ pure ()
   )
 
 replaceNums :: C.SubMap -> Protocol AddNums r bst -> Protocol AddNums r bst
@@ -446,7 +437,6 @@ instance
     Branch is r ls -> nest 2 $ "[Branch]" <+> pretty is <+> pretty (show r) <> line <> vsep (fmap pretty ls)
     Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
     Terminal xv -> "Terminal" <+> pretty xv
-    Protocol xv -> "Protocol" <+> pretty xv
 
 ------------------------------------------------
 -- genZst'
