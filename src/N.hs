@@ -170,6 +170,39 @@ type instance XBranch (Yst r bst) = ()
 type instance XGoto (Yst r bst) = ()
 type instance XTerminal (Yst r bst) = ()
 
+type XTrans m eta gama r bst =
+  ( XMsg eta -> m (XMsg gama)
+  , XLabel eta -> m (XLabel gama)
+  , XBranch eta -> m (XBranch gama)
+  , XGoto eta -> m (XGoto gama)
+  , XTerminal eta -> m (XTerminal gama)
+  )
+
+trans :: (Monad m) => XTrans m eta gama r bst -> Protocol eta r bst -> m (Protocol gama r bst)
+trans xt@(xmsg, xlabel, xbranch, xgoto, xterminal) = \case
+  msgOrLabel :> prots -> do
+    res <- case msgOrLabel of
+      Msg xv a b c d -> do
+        xv' <- xmsg xv
+        pure (Msg xv' a b c d)
+      Label xv i -> do
+        xv' <- xlabel xv
+        pure (Label xv' i)
+    prots' <- trans xt prots
+    pure (res :> prots')
+  Branch xv r ls -> do
+    xv' <- xbranch xv
+    ls' <- forM ls $ \(BranchSt bst prot) -> do
+      prot' <- trans xt prot
+      pure (BranchSt bst prot')
+    pure (Branch xv' r ls')
+  Goto xv i -> do
+    xv' <- xgoto xv
+    pure (Goto xv' i)
+  Terminal xv -> do
+    xv' <- xterminal xv
+    pure (Terminal xv')
+
 genZst'
   :: forall r bst sig m
    . (Has (State [bst] :+: State (Set Int) :+: Reader (Set Int)) sig m, Enum r)
