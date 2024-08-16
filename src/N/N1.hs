@@ -51,138 +51,72 @@ v1 =
             :> Terminal
       ]
 
--- >>> error $ show (pipleWithTracer v1)
--- (fromList [--------------------Creat-----------------
--- ---------------------------Client------------------------Server-----------------------Counter
--- LABEL 0
---      Ping
---      Pong
---      Add
--- Goto 0
---      Stop
---      AStop
--- Terminal
--- ,--------------------AddNum-----------------
--- ---------------------------Client------------------------Server-----------------------Counter
--- LABEL 0
---      Ping                  (0,3)                         (1,4)                         (2,5)
---      Pong                  (3,6)                         (4,7)                         (5,8)
---      Add                   (6,9)                         (7,10)                        (8,11)
--- Goto 0
---      Stop                  (0,12)                        (1,13)                        (2,14)
---      AStop                (12,15)                       (13,16)                       (14,17)
--- Terminal
--- ,--------------------GenConst-----------------
--- ---------------------------Client------------------------Server-----------------------Counter
--- LABEL 0                      0                             1                             2
---      Ping                 (0,3)->                       ->(1,4)
---      Pong                 (3,6)<-                       <-(4,7)
---      Add                  (6,9)->                                                     ->(8,11)
--- Goto 0
---      Stop                 (0,12)->                      ->(1,13)
---      AStop               (12,15)->                                                   ->(14,17)
--- Terminal
--- ,--------------------Constrains-----------------
--- fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
--- ,--------------------SubMap-----------------
--- fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
--- ,--------------------GenConstN-----------------
--- ---------------------------Client------------------------Server-----------------------Counter
--- LABEL 0                      0                             0                             1
---      Ping                 (0,2)->                       ->(0,2)
---      Pong                 (2,1)<-                       <-(2,0)
---      Add                  (1,0)->                                                     ->(1,1)
--- Goto 0
---      Stop                 (0,1)->                       ->(0,-1)
---      AStop                (1,-1)->                                                    ->(1,-1)
--- Terminal
--- ],Right Label ([0,0,1],0) 0
--- [Branch] [0,0,1] Client
---   * BranchSt True
---   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
---   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
---   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
---   Goto ([0,0,1],0) 0
---   * BranchSt False
---   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
---   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
---   Terminal [-1,-1,-1])
+{-
+>>> error $ show (pipleWithTracer v1)
+(fromList [--------------------Creat-----------------
+---------------------------Client------------------------Server-----------------------Counter
+LABEL 0
+  [Branch] Client
+    Ping
+    Pong
+    Add
+Goto 0
+    Stop
+    AStop
+Terminal
+,--------------------AddNum-----------------
+---------------------------Client------------------------Server-----------------------Counter
+LABEL 0
+  [Branch] Client
+    Ping                   (0,3)                         (1,4)                         (2,5)
+    Pong                   (3,6)                         (4,7)                         (5,8)
+    Add                    (6,9)                         (7,10)                        (8,11)
+Goto 0
+    Stop                   (0,12)                        (1,13)                        (2,14)
+    AStop                 (12,15)                       (13,16)                       (14,17)
+Terminal
+,--------------------GenConst-----------------
+---------------------------Client------------------------Server-----------------------Counter
+LABEL 0                      0                             1                             2
+  [Branch] Client            0                             1                             2
+    Ping                  (0,3)->                       ->(1,4)                           
+    Pong                  (3,6)<-                       <-(4,7)                           
+    Add                   (6,9)->                                                     ->(8,11)
+Goto 0
+    Stop                  (0,12)->                      ->(1,13)                          
+    AStop                (12,15)->                                                   ->(14,17)
+Terminal
+,--------------------Constrains-----------------
+fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
+,--------------------SubMap-----------------
+fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
+,--------------------GenConstN-----------------
+---------------------------Client------------------------Server-----------------------Counter
+LABEL 0                      0                             0                             1
+  [Branch] Client            0                             0                             1
+    Ping                  (0,2)->                       ->(0,2)                           
+    Pong                  (2,1)<-                       <-(2,0)                           
+    Add                   (1,0)->                                                     ->(1,1)
+Goto 0
+    Stop                  (0,1)->                       ->(0,-1)                          
+    AStop                 (1,-1)->                                                    ->(1,-1)
+Terminal
+],Right Label ([0,0,1],0) 0
+[Branch] [0,0,1] Client
+  * BranchSt () True
+  Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
+  Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
+  Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
+  Goto ([0,0,1],0) 0
+  * BranchSt () False
+  Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
+  Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
+  Terminal [-1,-1,-1])
 
-{- | ----->|     Ping
- |<-----|     Pong
- |----->|     Add
- |----->|     Stop
- |----->|    AStop
- ,--------------------AddNum-----------------
- |----->|     Ping
- |<-----|     Pong
- |----->|     Add
- |----->|     Stop
- |----->|    AStop
- ,--------------------GenConst-----------------
- Label ([0,1,2],0) 0
- [Branch] [0,1,2] Client
-   * BranchSt True
-   Msg <(([0,1,2],[3,4,5]),(Client,Server))> Ping [] Client Server
-   Msg <(([3,4,5],[6,7,8]),(Server,Client))> Pong [] Server Client
-   Msg <(([6,7,8],[9,10,11]),(Client,Counter))> Add [] Client Counter
-   Goto ([9,10,11],0) 0
-   * BranchSt False
-   Msg <(([0,1,2],[12,13,14]),(Client,Server))> Stop [] Client Server
-   Msg <(([12,13,14],[15,16,17]),(Client,Counter))> AStop [] Client Counter
-   Terminal [15,16,17]
- ,--------------------Constrains-----------------
- fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
- ,--------------------SubMap-----------------
- fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
- ,--------------------GenConstN-----------------
- Label ([0,0,1],0) 0
- [Branch] [0,0,1] Client
-   * BranchSt True
-   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
-   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
-   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
-   Goto ([0,0,1],0) 0
-   * BranchSt False
-   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
-   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
-   Terminal [-1,-1,-1]
- ],Right Label ([0,0,1],0) 0
- [Branch] [0,0,1] Client
-   * BranchSt True
-   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
-   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
-   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
-   Goto ([0,0,1],0) 0
-   * BranchSt False
-   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
-   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
-   Terminal [-1,-1,-1])
 -}
 
--- Right Label () 0
--- [Branch] () Client
---   * BranchSt True
---   Msg <0 [True] -> (2 , 2) Client -> Server> Ping [] Client Server
---   Msg <2 -> (0 [True] , 1 [True]) Server -> Client> Pong [] Server Client
---   Msg <1 [True] -> (0 s , 1 s) Client -> Counter> Add [] Client Counter
---   Goto () 0
---   * BranchSt False
---   Msg <0 [False] -> (1 [False] , End) Client -> Server> Stop [] Client Server
---   Msg <1 [False] -> (End , End) Client -> Counter> AStop [] Client Counter
---   Terminal ()
 
--- Right Label [0, 0, 1] 0
--- [Branch] [0, 0, 1] Client
---   * BranchSt True
---   Msg ([0, 0, 1], [2, 2, 1]) Ping [] Client Server
---   Msg ([2, 2, 1], [1, 0, 1]) Pong [] Server Client
---   Msg ([1, 0, 1], [0, 0, 1]) Add [] Client Counter
---   Goto [0, 0, 1] 0
---   * BranchSt False
---   Msg ([0, 0, 1], [1, -1, 1]) Stop [] Client Server
---   Msg ([1, -1, 1], [-1, -1, -1]) AStop [] Client Counter
---   Terminal [-1, -1, -1]
+
 
 data BookRole
   = Buyer
