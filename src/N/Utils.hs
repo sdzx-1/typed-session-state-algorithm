@@ -52,7 +52,7 @@ getAllMsgInfo = \case
   msgOrLabel :> prots -> case msgOrLabel of
     Msg _ _ _ from to -> (from, to) : getAllMsgInfo prots
     _ -> getAllMsgInfo prots
-  Branch _ _ ls -> concatMap (\(BranchSt _ prots) -> getAllMsgInfo prots) ls
+  Branch _ _ ls -> concatMap (\(BranchSt _ _ prots) -> getAllMsgInfo prots) ls
   Goto _ _ -> []
   Terminal _ -> []
 

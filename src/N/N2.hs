@@ -61,7 +61,7 @@ addNumsXTraverse =
         let len = length ls
         -- At least two branches.
         when (len < 2) (throwError (AtLeastTwoBranches (Branch is r ls)))
-        void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ prot) -> do
+        void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
           -- The first message of each branch must have the same receiver and sender.
           case getFirstMsgInfo prot of
             Nothing -> throwError (BranchNoMsg prot)
@@ -80,6 +80,7 @@ addNumsXTraverse =
         inNums <- get
         pure (inNums, restoreWrapper @[Int])
       _ -> error "np"
+  , const (pure ())
   , const get
   , const get
   )
@@ -93,6 +94,7 @@ toGenConstrXTraverse =
       (_, Label is i :> _) -> pure (is, i)
       _ -> error "np"
   , \(xv, _) -> pure (xv, id)
+  , \_ -> pure ()
   , \case
       (_, Goto xs i) -> pure (xs, i)
       _ -> error "np"
@@ -119,6 +121,7 @@ genConstrXFold =
         Just _ -> throwError @(ProtocolError r bst) (DefLabelMultTimes lb)
         Nothing -> modify (IntMap.insert i is)
   , \_ -> pure id
+  , \_ -> pure ()
   , \((xs, i), gt) -> do
       gets (IntMap.lookup i) >>= \case
         Nothing -> throwError (LabelUndefined gt)
@@ -132,6 +135,7 @@ replXTraverse sbm =
       pure ((replaceList sbm a, replaceList sbm b), (from, to))
   , \((xs, i), _) -> pure (replaceList sbm xs, i)
   , \(a, _) -> pure (replaceList sbm a, id)
+  , \_ -> pure ()
   , \((xs, i), _) -> pure (replaceList sbm xs, i)
   , pure . replaceList sbm . fst
   )
@@ -140,6 +144,7 @@ type XStringFill eta r =
   ( XMsg eta -> [StringFill]
   , XLabel eta -> [StringFill]
   , XBranch eta -> [StringFill]
+  , XBranchSt eta -> [StringFill]
   , XGoto eta -> [StringFill]
   , XTerminal eta -> [StringFill]
   )
@@ -153,7 +158,7 @@ renderXFold
      , Show r
      )
   => XStringFill eta r -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, _xgoto, _xterminal) =
+renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
   ( \(_, prot) -> case prot of
       Msg xv con _args _from _to :> _ -> do
         indentVal <- get @Int
@@ -171,6 +176,7 @@ renderXFold (xmsg, xlabel, xbranch, _xgoto, _xterminal) =
         tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
         pure (restoreWrapper @Int)
       _ -> error "np"
+  , \_ -> pure ()
   , \(_, prot) -> case prot of
       Goto _ i ->
         tell [[LeftAlign 1 ' ' ("Goto " ++ show i)]]
@@ -220,6 +226,7 @@ stCreat =
   , \_ -> []
   , \_ -> []
   , \_ -> []
+  , \_ -> []
   )
 
 stAddNums :: forall r. (Enum r, Bounded r) => XStringFill AddNums r
@@ -233,35 +240,38 @@ stAddNums =
   , \_ -> []
   , \_ -> []
   , \_ -> []
+  , \_ -> []
   )
-
-too :: forall r. (Enum r, Bounded r) => [Int] -> [StringFill]
-too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
 
 stGenConst :: forall r. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r
 stGenConst =
-  ( \((xs, ys), (from, to)) ->
-      let zs = zip xs ys
-          is = [minBound @r .. maxBound]
-          rg = fmap ((width *) . (+ 1) . fromEnum) is
-          res = zip rg zs
-          foo str i =
-            if
-              | i == from ->
-                  if from > to
-                    then "<-" ++ str
-                    else str ++ "->"
-              | i == to ->
-                  if from > to
-                    then str ++ "<-"
-                    else "->" ++ str
-              | otherwise -> ""
-       in [CenterFill ps ' ' $ foo (show v) i | (i, (ps, v)) <- zip is res]
-  , \(xs, _) -> too @r xs
-  , \xs -> too @r xs
-  , \_ -> []
-  , \_ -> []
-  )
+  let
+    too :: [Int] -> [StringFill]
+    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
+   in
+    ( \((xs, ys), (from, to)) ->
+        let zs = zip xs ys
+            is = [minBound @r .. maxBound]
+            rg = fmap ((width *) . (+ 1) . fromEnum) is
+            res = zip rg zs
+            foo str i =
+              if
+                | i == from ->
+                    if from > to
+                      then "<-" ++ str
+                      else str ++ "->"
+                | i == to ->
+                    if from > to
+                      then str ++ "<-"
+                      else "->" ++ str
+                | otherwise -> ""
+         in [CenterFill ps ' ' $ foo (show v) i | (i, (ps, v)) <- zip is res]
+    , \(xs, _) -> too xs
+    , \xs -> too xs
+    , \_ -> []
+    , \_ -> []
+    , \_ -> []
+    )
 
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
   show = \case

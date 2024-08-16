@@ -14,7 +14,7 @@ pattern Label :: Int -> N.MsgOrLabel Creat r
 pattern Label i = N.Label () i
 
 pattern BranchSt :: bst -> Protocol Creat r bst -> N.BranchSt Creat r bst
-pattern BranchSt a b = N.BranchSt a b
+pattern BranchSt a b = N.BranchSt () a b
 
 infixr 5 :>
 

@@ -25,15 +25,16 @@ import Prelude hiding (traverse)
 type family XMsg eta
 type family XLabel eta
 type family XBranch eta
+type family XBranchSt eta
 type family XGoto eta
 type family XTerminal eta
 
 -- | ForallX
 type ForallX (f :: Type -> Constraint) eta =
-  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XGoto eta), f (XTerminal eta))
+  (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XBranchSt eta), f (XGoto eta), f (XTerminal eta))
 
 -- | BranchSt
-data BranchSt eta r bst = BranchSt bst (Protocol eta r bst)
+data BranchSt eta r bst = BranchSt (XBranchSt eta) bst (Protocol eta r bst)
   deriving (Functor)
 
 -- | MsgOrLabel
@@ -61,6 +62,7 @@ type XTraverse m eta gama r bst =
         ( XBranch gama
         , m (Protocol gama r bst) -> m (Protocol gama r bst)
         )
+  , (XBranchSt eta, Protocol eta r bst) -> m (XBranchSt gama)
   , (XGoto eta, Protocol eta r bst) -> m (XGoto gama)
   , (XTerminal eta, Protocol eta r bst) -> m (XTerminal gama)
   )
@@ -71,7 +73,7 @@ xtraverse
   => XTraverse m eta gama r bst
   -> Protocol eta r bst
   -> m (Protocol gama r bst)
-xtraverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
+xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case prot of
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
       Msg xv a b c d -> do
@@ -84,9 +86,10 @@ xtraverse xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
     pure (res :> prots')
   Branch xv r ls -> do
     (xv', wrapper) <- xbranch (xv, prot)
-    ls' <- forM ls $ \(BranchSt bst prot1) -> do
+    ls' <- forM ls $ \(BranchSt xbst bst prot1) -> do
+      xbst' <- xbranchSt (xbst, prot1)
       prot' <- wrapper $ xtraverse xt prot1
-      pure (BranchSt bst prot')
+      pure (BranchSt xbst' bst prot')
     pure (Branch xv' r ls')
   Goto xv i -> do
     xv' <- xgoto (xv, prot)
@@ -100,13 +103,14 @@ type XFold m eta r bst =
   ( (XMsg eta, Protocol eta r bst) -> m ()
   , (XLabel eta, Protocol eta r bst) -> m ()
   , (XBranch eta, Protocol eta r bst) -> m (m () -> m ())
+  , (XBranchSt eta, Protocol eta r bst) -> m ()
   , (XGoto eta, Protocol eta r bst) -> m ()
   , (XTerminal eta, Protocol eta r bst) -> m ()
   )
 
 -- | xfold
 xfold :: (Monad m) => XFold m eta r bst -> Protocol eta r bst -> m ()
-xfold xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
+xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot of
   msgOrLabel :> prots -> do
     case msgOrLabel of
       Msg xv _ _ _ _ -> xmsg (xv, prot)
@@ -114,7 +118,9 @@ xfold xt@(xmsg, xlabel, xbranch, xgoto, xterminal) prot = case prot of
     xfold xt prots
   Branch xv _ ls -> do
     wrapper <- xbranch (xv, prot)
-    forM_ ls $ \(BranchSt _ prot1) -> wrapper $ xfold xt prot1
+    forM_ ls $ \(BranchSt xbst _ prot1) -> do
+      xbranchst (xbst, prot1)
+      wrapper $ xfold xt prot1
   Goto xv _ -> xgoto (xv, prot)
   Terminal xv -> xterminal (xv, prot)
 
@@ -147,6 +153,7 @@ data Creat
 type instance XMsg Creat = ()
 type instance XLabel Creat = ()
 type instance XBranch Creat = ()
+type instance XBranchSt Creat = ()
 type instance XGoto Creat = ()
 type instance XTerminal Creat = ()
 
@@ -155,6 +162,7 @@ data AddNums
 type instance XMsg AddNums = ([Int], [Int])
 type instance XLabel AddNums = [Int]
 type instance XBranch AddNums = [Int]
+type instance XBranchSt AddNums = ()
 type instance XGoto AddNums = [Int]
 type instance XTerminal AddNums = [Int]
 
@@ -163,13 +171,14 @@ data GenConst r
 type instance XMsg (GenConst r) = (([Int], [Int]), (r, r))
 type instance XLabel (GenConst r) = ([Int], Int)
 type instance XBranch (GenConst r) = [Int]
+type instance XBranchSt (GenConst r) = ()
 type instance XGoto (GenConst r) = ([Int], Int)
 type instance XTerminal (GenConst r) = [Int]
 
 ------------------------
 
-instance (Pretty (Protocol eta r bst), Show bst) => Pretty (BranchSt eta r bst) where
-  pretty (BranchSt bst prot) = "* BranchSt" <+> pretty (show bst) <> line <> (pretty prot)
+instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Pretty (BranchSt eta r bst) where
+  pretty (BranchSt xbst bst prot) = "* BranchSt" <+> pretty (show xbst) <+> pretty (show bst) <> line <> (pretty prot)
 
 instance (Show (XMsg eta), Show (XLabel eta), Show r) => Pretty (MsgOrLabel eta r) where
   pretty = \case
@@ -185,7 +194,7 @@ instance (ForallX Show eta, Show r, Show bst) => Pretty (Protocol eta r bst) whe
     Terminal xv -> "Terminal" <+> pretty (show xv)
 
 -----------------------------
-instance (Pretty (Protocol eta r bst), Show bst) => Show (BranchSt eta r bst) where
+instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Show (BranchSt eta r bst) where
   show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 instance (Show (XMsg eta), Show (XLabel eta), Show r) => Show (MsgOrLabel eta r) where
