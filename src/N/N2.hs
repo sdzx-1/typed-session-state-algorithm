@@ -55,31 +55,28 @@ addNumsXTraverse =
       put outNums
       pure (inNums, outNums)
   , const get
-  , \(_, v) -> case v of
-      -- check Branch
-      Branch is r ls -> do
-        let len = length ls
-        -- At least two branches.
-        when (len < 2) (throwError (AtLeastTwoBranches (Branch is r ls)))
-        void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
-          -- The first message of each branch must have the same receiver and sender.
-          case getFirstMsgInfo prot of
-            Nothing -> throwError (BranchNoMsg prot)
-            Just (from, to) -> do
-              when (from /= r) $
-                throwError (BranchFirstMsgMustHaveTheSameSender prot)
-              get @(Maybe r) >>= \case
-                Nothing -> put (Just to)
-                Just to' ->
-                  when (to /= to') $
-                    throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
-          -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
-          let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
-          when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
-        -- create output
-        inNums <- get
-        pure (inNums, restoreWrapper @[Int])
-      _ -> error "np"
+  , \(_, (r, ls)) -> do
+      let len = length ls
+      -- At least two branches.
+      when (len < 2) (throwError (AtLeastTwoBranches (Branch () r ls)))
+      void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
+        -- The first message of each branch must have the same receiver and sender.
+        case getFirstMsgInfo prot of
+          Nothing -> throwError (BranchNoMsg prot)
+          Just (from, to) -> do
+            when (from /= r) $
+              throwError (BranchFirstMsgMustHaveTheSameSender prot)
+            get @(Maybe r) >>= \case
+              Nothing -> put (Just to)
+              Just to' ->
+                when (to /= to') $
+                  throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
+        -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
+        let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
+        when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
+      -- create output
+      inNums <- get
+      pure (inNums, restoreWrapper @[Int])
   , const (pure ())
   , const get
   , const get
@@ -87,18 +84,12 @@ addNumsXTraverse =
 
 toGenConstrXTraverse :: (Monad m) => XTraverse m AddNums (GenConst r) r bst
 toGenConstrXTraverse =
-  ( \case
-      (_, Msg xv _ _ from to :> _) -> pure (xv, (from, to))
-      _ -> error "np"
-  , \case
-      (_, Label is i :> _) -> pure (is, i)
-      _ -> error "np"
+  ( \(xv, (_, _, from, to, _)) -> pure (xv, (from, to))
+  , \(is, (i, _)) -> pure (is, i)
   , \(xv, _) -> pure (xv, id)
   , \_ -> pure ()
-  , \case
-      (_, Goto xs i) -> pure (xs, i)
-      _ -> error "np"
-  , \(xv, _) -> pure xv
+  , \(xs, i) -> pure (xs, i)
+  , \xv -> pure xv
   )
 
 genConstrXFold
@@ -124,9 +115,9 @@ genConstrXFold =
   , \_ -> pure ()
   , \((xs, i), gt) -> do
       gets (IntMap.lookup i) >>= \case
-        Nothing -> throwError (LabelUndefined gt)
+        Nothing -> throwError @(ProtocolError r bst) (LabelUndefined gt)
         Just ls -> tellSeq $ zipWith C.Constraint xs ls
-  , \(xs, _) -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
+  , \(xs) -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
   )
 
 replXTraverse :: (Monad m) => C.SubMap -> XTraverse m (GenConst r) (GenConst r) r bst
@@ -137,7 +128,7 @@ replXTraverse sbm =
   , \(a, _) -> pure (replaceList sbm a, id)
   , \_ -> pure ()
   , \((xs, i), _) -> pure (replaceList sbm xs, i)
-  , pure . replaceList sbm . fst
+  , \xs -> pure (replaceList sbm xs)
   )
 
 type XStringFill eta r =
@@ -158,32 +149,20 @@ renderXFold
      , Show r
      )
   => XStringFill eta r -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
-  ( \(_, prot) -> case prot of
-      Msg xv con _args _from _to :> _ -> do
-        indentVal <- get @Int
-        let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
-        tell [va ++ xmsg xv]
-      _ -> error "np"
-  , \(_, prot) -> case prot of
-      Label xv i :> _ -> do
-        tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
-      _ -> pure ()
-  , \(_, prot) -> case prot of
-      Branch xv r _ls -> do
-        indentVal <- get @Int
-        modify @Int (+ 1)
-        tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
-        pure (restoreWrapper @Int)
-      _ -> error "np"
+renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
+  ( \(xv, (con, _, _, _, _)) -> do
+      indentVal <- get @Int
+      let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
+      tell [va ++ xmsg xv]
+  , \(xv, i) -> tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
+  , \(xv, (r, _)) -> do
+      indentVal <- get @Int
+      modify @Int (+ 1)
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
+      pure (restoreWrapper @Int)
   , \_ -> pure ()
-  , \(_, prot) -> case prot of
-      Goto _ i ->
-        tell [[LeftAlign 1 ' ' ("Goto " ++ show i)]]
-      _ -> error "np"
-  , \(_, prot) -> case prot of
-      _ ->
-        tell [[LeftAlign 1 ' ' "Terminal"]]
+  , \(_, i) -> tell [[LeftAlign 1 ' ' ("Goto " ++ show i)]]
+  , \_ -> tell [[LeftAlign 1 ' ' "Terminal"]]
   )
 
 getSF

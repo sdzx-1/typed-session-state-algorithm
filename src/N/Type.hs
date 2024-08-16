@@ -55,16 +55,16 @@ data Protocol eta r bst
 
 -- | XTraverse
 type XTraverse m eta gama r bst =
-  ( (XMsg eta, Protocol eta r bst) -> m (XMsg gama)
-  , (XLabel eta, Protocol eta r bst) -> m (XLabel gama)
-  , (XBranch eta, Protocol eta r bst)
+  ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m (XMsg gama)
+  , (XLabel eta, (Int, Protocol eta r bst)) -> m (XLabel gama)
+  , (XBranch eta, (r, [BranchSt eta r bst]))
     -> m
         ( XBranch gama
         , m (Protocol gama r bst) -> m (Protocol gama r bst)
         )
-  , (XBranchSt eta, Protocol eta r bst) -> m (XBranchSt gama)
-  , (XGoto eta, Protocol eta r bst) -> m (XGoto gama)
-  , (XTerminal eta, Protocol eta r bst) -> m (XTerminal gama)
+  , (XBranchSt eta, (bst, Protocol eta r bst)) -> m (XBranchSt gama)
+  , (XGoto eta, Int) -> m (XGoto gama)
+  , (XTerminal eta) -> m (XTerminal gama)
   )
 
 -- | xtraverse
@@ -77,35 +77,35 @@ xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case pr
   msgOrLabel :> prots -> do
     res <- case msgOrLabel of
       Msg xv a b c d -> do
-        xv' <- xmsg (xv, prot)
+        xv' <- xmsg (xv, (a, b, c, d, prots))
         pure (Msg xv' a b c d)
       Label xv i -> do
-        xv' <- xlabel (xv, prot)
+        xv' <- xlabel (xv, (i, prots))
         pure (Label xv' i)
     prots' <- xtraverse xt prots
     pure (res :> prots')
   Branch xv r ls -> do
-    (xv', wrapper) <- xbranch (xv, prot)
+    (xv', wrapper) <- xbranch (xv, (r, ls))
     ls' <- forM ls $ \(BranchSt xbst bst prot1) -> do
-      xbst' <- xbranchSt (xbst, prot1)
+      xbst' <- xbranchSt (xbst, (bst, prot1))
       prot' <- wrapper $ xtraverse xt prot1
       pure (BranchSt xbst' bst prot')
     pure (Branch xv' r ls')
   Goto xv i -> do
-    xv' <- xgoto (xv, prot)
+    xv' <- xgoto (xv, i)
     pure (Goto xv' i)
   Terminal xv -> do
-    xv' <- xterminal (xv, prot)
+    xv' <- xterminal xv
     pure (Terminal xv')
 
 -- | XFold
 type XFold m eta r bst =
-  ( (XMsg eta, Protocol eta r bst) -> m ()
-  , (XLabel eta, Protocol eta r bst) -> m ()
-  , (XBranch eta, Protocol eta r bst) -> m (m () -> m ())
-  , (XBranchSt eta, Protocol eta r bst) -> m ()
-  , (XGoto eta, Protocol eta r bst) -> m ()
-  , (XTerminal eta, Protocol eta r bst) -> m ()
+  ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m ()
+  , (XLabel eta, Int) -> m ()
+  , (XBranch eta, (r, [BranchSt eta r bst])) -> m (m () -> m ())
+  , (XBranchSt eta, (bst, Protocol eta r bst)) -> m ()
+  , (XGoto eta, Int) -> m ()
+  , (XTerminal eta) -> m ()
   )
 
 -- | xfold
@@ -113,22 +113,22 @@ xfold :: (Monad m) => XFold m eta r bst -> Protocol eta r bst -> m ()
 xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot of
   msgOrLabel :> prots -> do
     case msgOrLabel of
-      Msg xv _ _ _ _ -> xmsg (xv, prot)
-      Label xv _ -> xlabel (xv, prot)
+      Msg xv a b c d -> xmsg (xv, (a, b, c, d, prots))
+      Label xv i -> xlabel (xv, i)
     xfold xt prots
-  Branch xv _ ls -> do
-    wrapper <- xbranch (xv, prot)
-    forM_ ls $ \(BranchSt xbst _ prot1) -> do
-      xbranchst (xbst, prot1)
+  Branch xv r ls -> do
+    wrapper <- xbranch (xv, (r, ls))
+    forM_ ls $ \(BranchSt xbst bst prot1) -> do
+      xbranchst (xbst, (bst, prot1))
       wrapper $ xfold xt prot1
-  Goto xv _ -> xgoto (xv, prot)
-  Terminal xv -> xterminal (xv, prot)
+  Goto xv i -> xgoto (xv, i)
+  Terminal xv -> xterminal xv
 
 -- | ProtocolError
 data ProtocolError r bst
   = AtLeastTwoBranches (Protocol Creat r bst)
-  | DefLabelMultTimes (Protocol (GenConst r) r bst)
-  | LabelUndefined (Protocol (GenConst r) r bst)
+  | DefLabelMultTimes Int
+  | LabelUndefined Int
   | BranchNoMsg (Protocol Creat r bst)
   | BranchFirstMsgMustHaveTheSameReceiver (Protocol Creat r bst)
   | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
