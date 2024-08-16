@@ -175,6 +175,25 @@ type instance XBranchSt (GenConst r) = ()
 type instance XGoto (GenConst r) = ([Int], Int)
 type instance XTerminal (GenConst r) = [Int]
 
+data T bst
+  = TNum Int
+  | BstList Int [bst]
+  | TAny Int
+instance (Show bst) => Show (T bst) where
+  show = \case
+    TNum i -> "S" ++ show i
+    BstList i ls -> "S" ++ show i ++ " " ++ show ls
+    TAny i -> "S" ++ show i ++ " s"
+
+data MsgT r bst
+
+type instance XMsg (MsgT r bst) = ((T bst, T bst, T bst), (r, r))
+type instance XLabel (MsgT r bst) = ([T bst], Int)
+type instance XBranch (MsgT r bst) = [T bst]
+type instance XBranchSt (MsgT r bst) = ()
+type instance XGoto (MsgT r bst) = ()
+type instance XTerminal (MsgT r bst) = ()
+
 ------------------------
 
 instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Pretty (BranchSt eta r bst) where

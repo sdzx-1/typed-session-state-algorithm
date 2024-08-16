@@ -32,6 +32,8 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as L
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import Data.Set (Set)
+import qualified Data.Set as Set
 import N.Type
 import N.Utils
 import Render
@@ -131,6 +133,71 @@ replXTraverse sbm =
   , \xs -> pure (replaceList sbm xs)
   )
 
+collectBranchDynValXFold :: (Has (State (Set Int)) sig m) => XFold m (GenConst r) r bst
+collectBranchDynValXFold =
+  ( \_ -> pure ()
+  , \_ -> pure ()
+  , \(ls, _) -> do
+      modify (`Set.union` (Set.fromList ls))
+      pure id
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
+piple'
+  :: forall r bst sig m
+   . ( Has (Error (ProtocolError r bst)) sig m
+     , Enum r
+     , Bounded r
+     , Eq r
+     , Ord r
+     )
+  => (Tracer r bst -> m ())
+  -> Protocol Creat r bst
+  -> m (Protocol (GenConst r) r bst)
+piple' trace prot = do
+  trace (TraceProtocolCreat prot)
+  prot' <-
+    fmap (snd . snd)
+      . runFresh 1
+      . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
+      $ xtraverse addNumsXTraverse prot
+  trace (TraceProtocolAddNum prot')
+  prot'' <- xtraverse toGenConstrXTraverse prot'
+  trace (TraceProtocolGenConst prot'')
+  (constraintList, _) <-
+    runWriter @(Seq C.Constraint)
+      . runState @(IntMap [Int]) (IntMap.empty)
+      $ xfold genConstrXFold prot''
+  trace (TraceConstraints constraintList)
+  let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
+  trace (TraceSubMap sbm)
+  prot''' <- xtraverse (replXTraverse sbm) prot''
+  trace (TraceProtocolGenConstN prot''')
+  dnys <- fst <$> runState @((Set Int)) (Set.empty) (xfold collectBranchDynValXFold prot''')
+  trace (TraceCollectBranchDynVal dnys)
+  pure prot'''
+
+piple
+  :: forall r bst
+   . (Enum r, Bounded r, Eq r, Ord r)
+  => Protocol Creat r bst
+  -> Either (ProtocolError r bst) (Protocol (GenConst r) r bst)
+piple protocol =
+  run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
+
+pipleWithTracer
+  :: forall r bst
+   . (Enum r, Bounded r, Eq r, Ord r)
+  => Protocol Creat r bst
+  -> (Seq (Tracer r bst), Either (ProtocolError r bst) (Protocol (GenConst r) r bst))
+pipleWithTracer protocol =
+  run
+    . runWriter @(Seq (Tracer r bst))
+    . runError @(ProtocolError r bst)
+    $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
+
 type XStringFill eta r =
   ( XMsg eta -> [StringFill]
   , XLabel eta -> [StringFill]
@@ -196,6 +263,7 @@ data Tracer r bst
   | TraceConstraints (Seq C.Constraint)
   | TraceSubMap C.SubMap
   | TraceProtocolGenConstN (Protocol (GenConst r) r bst)
+  | TraceCollectBranchDynVal (Set Int)
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -267,54 +335,4 @@ instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bs
     TraceConstraints p -> traceWrapper "Constrains" $ show p
     TraceSubMap p -> traceWrapper "SubMap" $ show p
     TraceProtocolGenConstN p -> traceWrapper "GenConstN" $ getSF (stGenConst @r) p
-
-piple'
-  :: forall r bst sig m
-   . ( Has (Error (ProtocolError r bst)) sig m
-     , Enum r
-     , Bounded r
-     , Eq r
-     , Ord r
-     )
-  => (Tracer r bst -> m ())
-  -> Protocol Creat r bst
-  -> m (Protocol (GenConst r) r bst)
-piple' trace prot = do
-  trace (TraceProtocolCreat prot)
-  prot' <-
-    fmap (snd . snd)
-      . runFresh 1
-      . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
-      $ xtraverse addNumsXTraverse prot
-  trace (TraceProtocolAddNum prot')
-  prot'' <- xtraverse toGenConstrXTraverse prot'
-  trace (TraceProtocolGenConst prot'')
-  (constraintList, _) <-
-    runWriter @(Seq C.Constraint)
-      . runState @(IntMap [Int]) (IntMap.empty)
-      $ xfold genConstrXFold prot''
-  trace (TraceConstraints constraintList)
-  let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
-  trace (TraceSubMap sbm)
-  prot''' <- xtraverse (replXTraverse sbm) prot''
-  trace (TraceProtocolGenConstN prot''')
-  pure prot'''
-
-piple
-  :: forall r bst
-   . (Enum r, Bounded r, Eq r, Ord r)
-  => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol (GenConst r) r bst)
-piple protocol =
-  run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
-
-pipleWithTracer
-  :: forall r bst
-   . (Enum r, Bounded r, Eq r, Ord r)
-  => Protocol Creat r bst
-  -> (Seq (Tracer r bst), Either (ProtocolError r bst) (Protocol (GenConst r) r bst))
-pipleWithTracer protocol =
-  run
-    . runWriter @(Seq (Tracer r bst))
-    . runError @(ProtocolError r bst)
-    $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
+    TraceCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
