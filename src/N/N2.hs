@@ -164,30 +164,24 @@ genT foo i = do
 
 genMsgTXTraverse
   :: forall r bst sig m
-   . (Has (Reader (Set Int) :+: State [bst]) sig m, Enum r)
+   . (Has (Reader (Set Int) :+: State [bst]) sig m, Enum r, Eq r, Bounded r)
   => XTraverse m (GenConst r) (MsgT r bst) r bst
 genMsgTXTraverse =
-  ( \(((is, os), (from, to)), _) -> do
-      let from' = fromEnum from
-          to' = fromEnum to
-          startSt = is !! from'
-          senderSt = os !! from'
-          recverSt = os !! to'
-      startSt' <- genT @bst (\bs i -> BstList i bs) startSt
-      senderSt' <- genT @bst (const TAny) senderSt
-      recverSt' <- genT @bst (const TAny) recverSt
-      pure ((startSt', senderSt', recverSt'), (from, to))
+  ( \(((is, _), (from, to)), _) -> do
+      is' <- forM (zip [minBound @r .. maxBound] is) $
+        \(key, i) -> genT @bst (\bst1 i1 -> if key == from then BstList i1 bst1 else TAny i1) i
+      pure (is', (from, to))
   , \((ls, idx), _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', idx)
   , \(ls, _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', restoreWrapper @[bst])
-  , \(_, (bst, _)) -> do
-      modify (bst :)
-      get
-  , \_ -> pure ()
-  , \_ -> pure ()
+  , \(_, (bst, _)) -> modify (bst :)
+  , \((is, i), _) -> do
+      is' <- mapM (genT @bst (const TAny)) is
+      pure (is', i)
+  , \ls -> pure $ fmap (const TEnd) ls
   )
 
 piple'
@@ -268,7 +262,7 @@ renderXFold
      , Show bst
      )
   => XStringFill eta r bst -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
+renderXFold (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
   ( \(xv, (con, _, _, _, _)) -> do
       indentVal <- get @Int
       let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
@@ -281,13 +275,13 @@ renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
       pure (restoreWrapper @Int)
   , \(_, (bst, _)) -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt " ++ show bst)]]
-  , \(_, i) -> do
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("* BranchSt " ++ show bst)]]
+  , \(xv, i) -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("🚀Goto " ++ show i)]]
-  , \_ -> do
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("^ Goto " ++ show i)] ++ xgoto xv]
+  , \xv -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' "🍰Terminal"]]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' "~ Terminal"] ++ xterminal xv]
   )
 
 getSF
@@ -385,18 +379,12 @@ stMsgT =
     rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
     too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap rtops [minBound @r .. maxBound]]
    in
-    ( \((a, b, c), (from, to)) ->
-        let from' = rtops from
-            to' = rtops to
-         in [ LeftAlign 25 ' ' (show a)
-            , CenterFill from' ' ' (show b)
-            , CenterFill to' ' ' (show c)
-            ]
+    ( \(ls, _) -> too ls
     , \(xs, _) -> too xs
     , \xs -> too xs
     , \_ -> []
-    , \_ -> []
-    , \_ -> []
+    , \(xs, _) -> too xs
+    , \xs -> too xs
     )
 
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where

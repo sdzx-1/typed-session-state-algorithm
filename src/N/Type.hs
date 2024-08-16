@@ -183,18 +183,18 @@ data T bst
 instance (Show bst) => Show (T bst) where
   show = \case
     TNum i -> "S" ++ show i
-    BstList i ls -> "S" ++ show i ++ " [" ++ show (head ls) ++ " ..]"
+    BstList i ls -> "S" ++ show i ++ " [" ++ if null ls then "]" else show (head ls) ++ " ..]"
     TAny i -> "S" ++ show i ++ " s"
     TEnd -> "End"
 
 data MsgT r bst
 
-type instance XMsg (MsgT r bst) = ((T bst, T bst, T bst), (r, r))
+type instance XMsg (MsgT r bst) = ([T bst], (r, r))
 type instance XLabel (MsgT r bst) = ([T bst], Int)
 type instance XBranch (MsgT r bst) = [T bst]
-type instance XBranchSt (MsgT r bst) = [bst]
-type instance XGoto (MsgT r bst) = ()
-type instance XTerminal (MsgT r bst) = ()
+type instance XBranchSt (MsgT r bst) = ()
+type instance XGoto (MsgT r bst) = ([T bst], Int)
+type instance XTerminal (MsgT r bst) = [T bst]
 
 ------------------------
 

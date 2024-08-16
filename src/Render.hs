@@ -37,10 +37,10 @@ runCenterFills ls =
    in foldl' runCenterFill "" ls'
 
 width :: Int
-width = 20
+width = 30
 
 leftWidth :: Int
-leftWidth = 30
+leftWidth = 20
 
 reSt :: String -> String
 reSt st =
