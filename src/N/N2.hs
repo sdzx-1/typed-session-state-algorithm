@@ -380,15 +380,12 @@ stGenConst =
 stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => XStringFill (MsgT r bst) r bst
 stMsgT =
   let
-    too :: [T bst] -> [StringFill]
-    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
+    rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
+    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap rtops [minBound @r .. maxBound]]
    in
     ( \((a, b, c), (from, to)) ->
-        let is = [minBound @r .. maxBound]
-            rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) is
-
-            from' = rg !! fromEnum from
-            to' = rg !! fromEnum to
+        let from' = rtops from
+            to' = rtops to
          in [ LeftAlign 25 ' ' (show a)
             , CenterFill from' ' ' (show b)
             , CenterFill to' ' ' (show c)
