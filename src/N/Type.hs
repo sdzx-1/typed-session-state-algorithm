@@ -177,13 +177,13 @@ type instance XTerminal (GenConst r) = [Int]
 
 data T bst
   = TNum Int
-  | BstList Int [bst]
+  | BstList Int bst
   | TAny Int
   | TEnd
 instance (Show bst) => Show (T bst) where
   show = \case
     TNum i -> "S" ++ show i
-    BstList i ls -> "S" ++ show i ++ " [" ++ if null ls then "]" else show (head ls) ++ " ..]"
+    BstList i bst -> "S" ++ show i ++ " " ++ show bst
     TAny i -> "S" ++ show i ++ " s"
     TEnd -> "End"
 

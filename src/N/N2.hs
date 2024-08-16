@@ -149,8 +149,8 @@ collectBranchDynValXFold =
 
 genT
   :: forall bst sig m
-   . (Has (Reader (Set Int) :+: State [bst]) sig m)
-  => ([bst] -> Int -> T bst) -> Int -> m (T bst)
+   . (Has (Reader (Set Int) :+: State bst) sig m)
+  => (bst -> Int -> T bst) -> Int -> m (T bst)
 genT foo i = do
   dynSet <- ask @(Set Int)
   if i == -1
@@ -164,7 +164,7 @@ genT foo i = do
 
 genMsgTXTraverse
   :: forall r bst sig m
-   . (Has (Reader (Set Int) :+: State [bst]) sig m, Enum r, Eq r, Bounded r)
+   . (Has (Reader (Set Int) :+: State bst) sig m, Enum r, Eq r, Bounded r)
   => XTraverse m (GenConst r) (MsgT r bst) r bst
 genMsgTXTraverse =
   ( \(((is, _), (from, to)), _) -> do
@@ -176,8 +176,8 @@ genMsgTXTraverse =
       pure (ls', idx)
   , \(ls, _) -> do
       ls' <- mapM (genT (const TAny)) ls
-      pure (ls', restoreWrapper @[bst])
-  , \(_, (bst, _)) -> modify (bst :)
+      pure (ls', restoreWrapper @bst)
+  , \(_, (bst, _)) -> put bst
   , \((is, i), _) -> do
       is' <- mapM (genT @bst (const TAny)) is
       pure (is', i)
@@ -219,7 +219,7 @@ piple' trace prot0 = do
   prot4 <-
     fmap snd
       . runReader @(Set Int) dnys
-      . runState @[bst] []
+      . runState @bst undefined
       $ (xtraverse genMsgTXTraverse prot3)
   trace (TraceProtocolMsgT prot4)
   pure prot3

@@ -116,13 +116,13 @@ fromList [0,1]
 LABEL 0                                         S0 s                          S0 s                          S1 s
   [Branch] Client                               S0 s                          S0 s                          S1 s
     * BranchSt True
-    Ping                                    S0 [True ..]                      S0 s                          S1 s
+    Ping                                      S0 True                         S0 s                          S1 s
     Pong                                         S2                            S2                           S1 s
-    Add                                     S1 [True ..]                      S0 s                          S1 s
+    Add                                       S1 True                         S0 s                          S1 s
     ^ Goto 0                                    S0 s                          S0 s                          S1 s
     * BranchSt False
-    Stop                                   S0 [False ..]                      S0 s                          S1 s
-    AStop                                  S1 [False ..]                      End                           S1 s
+    Stop                                      S0 False                        S0 s                          S1 s
+    AStop                                     S1 False                        End                           S1 s
     ~ Terminal                                  End                           End                           End
 ],Right Label ([0,0,1],0) 0
 [Branch] [0,0,1] Client
@@ -363,36 +363,36 @@ LABEL 0                                          S0                            S
   Title                                          S0                            S0                           S1 s
   [Branch] Seller                               S2 s                          S2 s                          S1 s
     * BranchSt NotFound
-    NoBook                                      S2 s                    S2 [NotFound ..]                    S1 s
-    SellerNoBook                          S1 [NotFound ..]                     S0                           S1 s
+    NoBook                                      S2 s                      S2 NotFound                       S1 s
+    SellerNoBook                            S1 NotFound                        S0                           S1 s
     ^ Goto 0                                     S0                            S0                           S1 s
     * BranchSt Found
-    Price                                       S2 s                     S2 [Found ..]                      S1 s
+    Price                                       S2 s                        S2 Found                        S1 s
     [Branch] Buyer                              S1 s                          S3 s                          S1 s
       * BranchSt One
-      OneAfford                             S1 [One ..]                       S3 s                          S1 s
-      OneAccept                             S3 [One ..]                       S3 s                           S4
+      OneAfford                                S1 One                         S3 s                          S1 s
+      OneAccept                                S3 One                         S3 s                           S4
       OneDate                                    S5                            S5                            S4
       OneSuccess                                 S4                            S0                            S4
       ^ Goto 0                                   S0                            S0                           S1 s
       * BranchSt Two
-      PriceToBuyer2                         S1 [Two ..]                       S3 s                          S1 s
+      PriceToBuyer2                            S1 Two                         S3 s                          S1 s
       [Branch] Buyer2                           S6 s                          S3 s                          S6 s
         * BranchSt NotSupport
-        NotSupport                              S6 s                          S3 s                   S6 [NotSupport ..]
-        TwoNotBuy                        S3 [NotSupport ..]                   S3 s                          S1 s
+        NotSupport                              S6 s                          S3 s                     S6 NotSupport
+        TwoNotBuy                          S3 NotSupport                      S3 s                          S1 s
         ^ Goto 0                                 S0                            S0                           S1 s
         * BranchSt Support
-        SupportVal                              S6 s                          S3 s                    S6 [Support ..]
+        SupportVal                              S6 s                          S3 s                       S6 Support
         [Branch] Buyer                          S3 s                          S3 s                          S7 s
           * BranchSt Enough
-          TwoAccept                        S3 [Enough ..]                     S3 s                          S7 s
+          TwoAccept                          S3 Enough                        S3 s                          S7 s
           TwoDate                                S8                            S8                           S7 s
-          TwoSuccess                       S7 [Enough ..]                      S0                           S7 s
+          TwoSuccess                         S7 Enough                         S0                           S7 s
           ^ Goto 0                               S0                            S0                           S1 s
           * BranchSt NotEnough
-          TwoNotBuy1                     S3 [NotEnough ..]                    S3 s                          S7 s
-          TwoFailed                      S7 [NotEnough ..]                    End                           S7 s
+          TwoNotBuy1                        S3 NotEnough                      S3 s                          S7 s
+          TwoFailed                         S7 NotEnough                      End                           S7 s
           ~ Terminal                            End                           End                           End
 ],Right Label ([0,0,1],0) 0
 Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller
