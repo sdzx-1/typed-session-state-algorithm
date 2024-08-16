@@ -147,6 +147,7 @@ renderXFold
      , Enum r
      , Bounded r
      , Show r
+     , Show bst
      )
   => XStringFill eta r -> XFold m eta r bst
 renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
@@ -160,14 +161,20 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
       modify @Int (+ 1)
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
       pure (restoreWrapper @Int)
-  , \_ -> pure ()
-  , \(_, i) -> tell [[LeftAlign 1 ' ' ("Goto " ++ show i)]]
-  , \_ -> tell [[LeftAlign 1 ' ' "Terminal"]]
+  , \(_, (bst, _)) -> do
+      indentVal <- get @Int
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt" ++ show bst)]]
+  , \(_, i) -> do
+      indentVal <- get @Int
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("Goto " ++ show i)]]
+  , \_ -> do
+      indentVal <- get @Int
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' "Terminal"]]
   )
 
 getSF
   :: forall r eta bst
-   . (ForallX Show eta, Enum r, Bounded r, Show r)
+   . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
   => XStringFill eta r -> Protocol eta r bst -> String
 getSF xst prot =
   unlines
