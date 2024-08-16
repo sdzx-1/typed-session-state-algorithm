@@ -279,10 +279,9 @@ renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
       modify @Int (+ 1)
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
       pure (restoreWrapper @Int)
-  , \(xv, (bst, _)) -> do
+  , \(_, (bst, _)) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt " ++ show bst)]]
-      tell [xbranchst xv]
   , \(_, i) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("🚀Goto " ++ show i)]]
