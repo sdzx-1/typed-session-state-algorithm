@@ -343,6 +343,19 @@ stAddNums =
   , \_ -> []
   )
 
+foo :: (Ord a) => a -> a -> [Char] -> a -> [Char]
+foo from to str i =
+  if
+    | i == from ->
+        if from > to
+          then "<-" ++ str
+          else str ++ "->"
+    | i == to ->
+        if from > to
+          then str ++ "<-"
+          else "->" ++ str
+    | otherwise -> str
+
 stGenConst :: forall r bst. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r bst
 stGenConst =
   let
@@ -354,18 +367,7 @@ stGenConst =
             is = [minBound @r .. maxBound]
             rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) is
             res = zip rg zs
-            foo str i =
-              if
-                | i == from ->
-                    if from > to
-                      then "<-" ++ str
-                      else str ++ "->"
-                | i == to ->
-                    if from > to
-                      then str ++ "<-"
-                      else "->" ++ str
-                | otherwise -> ""
-         in [CenterFill ps ' ' $ foo (show v) i | (i, (ps, v)) <- zip is res]
+         in [CenterFill ps ' ' $ foo from to (show v) i | (i, (ps, v)) <- zip is res]
     , \(xs, _) -> too xs
     , \xs -> too xs
     , \_ -> []
@@ -379,7 +381,7 @@ stMsgT =
     rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
     too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap rtops [minBound @r .. maxBound]]
    in
-    ( \(ls, _) -> too ls
+    ( \(ls, (from, to)) -> [CenterFill ps ' ' $ foo from to (show v) i | (i, (v, ps)) <- zip [minBound @r .. maxBound] $ zip ls $ fmap rtops [minBound @r .. maxBound]]
     , \(xs, _) -> too xs
     , \xs -> too xs
     , \_ -> []
