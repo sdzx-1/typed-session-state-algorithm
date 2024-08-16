@@ -54,61 +54,61 @@ v1 =
 {-
 >>> error $ show (pipleWithTracer v1)
 (fromList [--------------------Creat-----------------
----------------------------Client------------------------Server-----------------------Counter
+-----------------------------------------------Client--------------Server-------------Counter
 LABEL 0
   [Branch] Client
-    ▶️️BranchStTrue
+    ▶️️BranchSt True
     Ping
     Pong
     Add
-    Goto 0
-    ▶️️BranchStFalse
+    🚀Goto 0
+    ▶️️BranchSt False
     Stop
     AStop
-    Terminal
+    🍰Terminal
 ,--------------------AddNum-----------------
----------------------------Client------------------------Server-----------------------Counter
+-----------------------------------------------Client--------------Server-------------Counter
 LABEL 0
   [Branch] Client
-    ▶️️BranchStTrue
-    Ping                   (0,3)                         (1,4)                         (2,5)
-    Pong                   (3,6)                         (4,7)                         (5,8)
-    Add                    (6,9)                         (7,10)                        (8,11)
-    Goto 0
-    ▶️️BranchStFalse
-    Stop                   (0,12)                        (1,13)                        (2,14)
-    AStop                 (12,15)                       (13,16)                       (14,17)
-    Terminal
+    ▶️️BranchSt True
+    Ping                                       (0,3)               (1,4)               (2,5)
+    Pong                                       (3,6)               (4,7)               (5,8)
+    Add                                        (6,9)               (7,10)              (8,11)
+    🚀Goto 0
+    ▶️️BranchSt False
+    Stop                                       (0,12)              (1,13)              (2,14)
+    AStop                                     (12,15)             (13,16)             (14,17)
+    🍰Terminal
 ,--------------------GenConst-----------------
----------------------------Client------------------------Server-----------------------Counter
-LABEL 0                      0                             1                             2
-  [Branch] Client            0                             1                             2
-    ▶️️BranchStTrue
-    Ping                  (0,3)->                       ->(1,4)                           
-    Pong                  (3,6)<-                       <-(4,7)                           
-    Add                   (6,9)->                                                     ->(8,11)
-    Goto 0
-    ▶️️BranchStFalse
-    Stop                  (0,12)->                      ->(1,13)                          
-    AStop                (12,15)->                                                   ->(14,17)
-    Terminal
+-----------------------------------------------Client--------------Server-------------Counter
+LABEL 0                                          0                   1                   2
+  [Branch] Client                                0                   1                   2
+    ▶️️BranchSt True
+    Ping                                      (0,3)->             ->(1,4)                 
+    Pong                                      (3,6)<-             <-(4,7)                 
+    Add                                       (6,9)->                                 ->(8,11)
+    🚀Goto 0
+    ▶️️BranchSt False
+    Stop                                      (0,12)->            ->(1,13)                
+    AStop                                    (12,15)->                               ->(14,17)
+    🍰Terminal
 ,--------------------Constrains-----------------
 fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
 ,--------------------SubMap-----------------
 fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
 ,--------------------GenConstN-----------------
----------------------------Client------------------------Server-----------------------Counter
-LABEL 0                      0                             0                             1
-  [Branch] Client            0                             0                             1
-    ▶️️BranchStTrue
-    Ping                  (0,2)->                       ->(0,2)                           
-    Pong                  (2,1)<-                       <-(2,0)                           
-    Add                   (1,0)->                                                     ->(1,1)
-    Goto 0
-    ▶️️BranchStFalse
-    Stop                  (0,1)->                       ->(0,-1)                          
-    AStop                 (1,-1)->                                                    ->(1,-1)
-    Terminal
+-----------------------------------------------Client--------------Server-------------Counter
+LABEL 0                                          0                   0                   1
+  [Branch] Client                                0                   0                   1
+    ▶️️BranchSt True
+    Ping                                      (0,2)->             ->(0,2)                 
+    Pong                                      (2,1)<-             <-(2,0)                 
+    Add                                       (1,0)->                                 ->(1,1)
+    🚀Goto 0
+    ▶️️BranchSt False
+    Stop                                      (0,1)->             ->(0,-1)                
+    AStop                                     (1,-1)->                                ->(1,-1)
+    🍰Terminal
 ],Right Label ([0,0,1],0) 0
 [Branch] [0,0,1] Client
   * BranchSt () True
@@ -192,157 +192,157 @@ v2 =
 {-
 >>> error $ show (pipleWithTracer v2)
 (fromList [--------------------Creat-----------------
----------------------------Buyer-------------------------Seller------------------------Buyer2
+-----------------------------------------------Buyer---------------Seller--------------Buyer2
 LABEL 0
   Title
   [Branch] Seller
-    ▶️️BranchStNotFound
+    ▶️️BranchSt NotFound
     NoBook
     SellerNoBook
-    Goto 0
-    ▶️️BranchStFound
+    🚀Goto 0
+    ▶️️BranchSt Found
     Price
     [Branch] Buyer
-      ▶️️BranchStTwo
+      ▶️️BranchSt Two
       PriceToBuyer2
       [Branch] Buyer2
-        ▶️️BranchStNotSupport
+        ▶️️BranchSt NotSupport
         NotSupport
         TwoNotBuy
-        Goto 0
-        ▶️️BranchStSupport
+        🚀Goto 0
+        ▶️️BranchSt Support
         SupportVal
         [Branch] Buyer
-          ▶️️BranchStEnough
+          ▶️️BranchSt Enough
           TwoAccept
           TwoDate
           TwoSuccess
-          Goto 0
-          ▶️️BranchStNotEnough
+          🚀Goto 0
+          ▶️️BranchSt NotEnough
           TwoNotBuy1
           TwoFailed
-          Terminal
-      ▶️️BranchStOne
+          🍰Terminal
+      ▶️️BranchSt One
       OneAfford
       OneAccept
       OneDate
       OneSuccess
-      Goto 0
+      🚀Goto 0
 ,--------------------AddNum-----------------
----------------------------Buyer-------------------------Seller------------------------Buyer2
+-----------------------------------------------Buyer---------------Seller--------------Buyer2
 LABEL 0
-  Title                    (0,3)                         (1,4)                         (2,5)
+  Title                                        (0,3)               (1,4)               (2,5)
   [Branch] Seller
-    ▶️️BranchStNotFound
-    NoBook                 (3,6)                         (4,7)                         (5,8)
-    SellerNoBook           (6,9)                         (7,10)                        (8,11)
-    Goto 0
-    ▶️️BranchStFound
-    Price                  (3,12)                        (4,13)                        (5,14)
+    ▶️️BranchSt NotFound
+    NoBook                                     (3,6)               (4,7)               (5,8)
+    SellerNoBook                               (6,9)               (7,10)              (8,11)
+    🚀Goto 0
+    ▶️️BranchSt Found
+    Price                                      (3,12)              (4,13)              (5,14)
     [Branch] Buyer
-      ▶️️BranchStTwo
-      PriceToBuyer2       (12,15)                       (13,16)                       (14,17)
+      ▶️️BranchSt Two
+      PriceToBuyer2                           (12,15)             (13,16)             (14,17)
       [Branch] Buyer2
-        ▶️️BranchStNotSupport
-        NotSupport        (15,18)                       (16,19)                       (17,20)
-        TwoNotBuy         (18,21)                       (19,22)                       (20,23)
-        Goto 0
-        ▶️️BranchStSupport
-        SupportVal        (15,24)                       (16,25)                       (17,26)
+        ▶️️BranchSt NotSupport
+        NotSupport                            (15,18)             (16,19)             (17,20)
+        TwoNotBuy                             (18,21)             (19,22)             (20,23)
+        🚀Goto 0
+        ▶️️BranchSt Support
+        SupportVal                            (15,24)             (16,25)             (17,26)
         [Branch] Buyer
-          ▶️️BranchStEnough
-          TwoAccept       (24,27)                       (25,28)                       (26,29)
-          TwoDate         (27,30)                       (28,31)                       (29,32)
-          TwoSuccess      (30,33)                       (31,34)                       (32,35)
-          Goto 0
-          ▶️️BranchStNotEnough
-          TwoNotBuy1      (24,36)                       (25,37)                       (26,38)
-          TwoFailed       (36,39)                       (37,40)                       (38,41)
-          Terminal
-      ▶️️BranchStOne
-      OneAfford           (12,42)                       (13,43)                       (14,44)
-      OneAccept           (42,45)                       (43,46)                       (44,47)
-      OneDate             (45,48)                       (46,49)                       (47,50)
-      OneSuccess          (48,51)                       (49,52)                       (50,53)
-      Goto 0
+          ▶️️BranchSt Enough
+          TwoAccept                           (24,27)             (25,28)             (26,29)
+          TwoDate                             (27,30)             (28,31)             (29,32)
+          TwoSuccess                          (30,33)             (31,34)             (32,35)
+          🚀Goto 0
+          ▶️️BranchSt NotEnough
+          TwoNotBuy1                          (24,36)             (25,37)             (26,38)
+          TwoFailed                           (36,39)             (37,40)             (38,41)
+          🍰Terminal
+      ▶️️BranchSt One
+      OneAfford                               (12,42)             (13,43)             (14,44)
+      OneAccept                               (42,45)             (43,46)             (44,47)
+      OneDate                                 (45,48)             (46,49)             (47,50)
+      OneSuccess                              (48,51)             (49,52)             (50,53)
+      🚀Goto 0
 ,--------------------GenConst-----------------
----------------------------Buyer-------------------------Seller------------------------Buyer2
-LABEL 0                      0                             1                             2
-  Title                   (0,3)->                       ->(1,4)                           
-  [Branch] Seller            3                             4                             5
-    ▶️️BranchStNotFound
-    NoBook                (3,6)<-                       <-(4,7)                           
-    SellerNoBook          (6,9)->                                                     ->(8,11)
-    Goto 0
-    ▶️️BranchStFound
-    Price                 (3,12)<-                      <-(4,13)                          
-    [Branch] Buyer           12                            13                            14
-      ▶️️BranchStTwo
-      PriceToBuyer2      (12,15)->                                                   ->(14,17)
-      [Branch] Buyer2        15                            16                            17
-        ▶️️BranchStNotSupport
-        NotSupport       (15,18)<-                                                   <-(17,20)
-        TwoNotBuy        (18,21)->                     ->(19,22)                          
-        Goto 0
-        ▶️️BranchStSupport
-        SupportVal       (15,24)<-                                                   <-(17,26)
-        [Branch] Buyer       24                            25                            26
-          ▶️️BranchStEnough
-          TwoAccept      (24,27)->                     ->(25,28)                          
-          TwoDate        (27,30)<-                     <-(28,31)                          
-          TwoSuccess     (30,33)->                                                   ->(32,35)
-          Goto 0
-          ▶️️BranchStNotEnough
-          TwoNotBuy1     (24,36)->                     ->(25,37)                          
-          TwoFailed      (36,39)->                                                   ->(38,41)
-          Terminal
-      ▶️️BranchStOne
-      OneAfford          (12,42)->                                                   ->(14,44)
-      OneAccept          (42,45)->                     ->(43,46)                          
-      OneDate            (45,48)<-                     <-(46,49)                          
-      OneSuccess         (48,51)->                                                   ->(50,53)
-      Goto 0
+-----------------------------------------------Buyer---------------Seller--------------Buyer2
+LABEL 0                                          0                   1                   2
+  Title                                       (0,3)->             ->(1,4)                 
+  [Branch] Seller                                3                   4                   5
+    ▶️️BranchSt NotFound
+    NoBook                                    (3,6)<-             <-(4,7)                 
+    SellerNoBook                              (6,9)->                                 ->(8,11)
+    🚀Goto 0
+    ▶️️BranchSt Found
+    Price                                     (3,12)<-            <-(4,13)                
+    [Branch] Buyer                               12                  13                  14
+      ▶️️BranchSt Two
+      PriceToBuyer2                          (12,15)->                               ->(14,17)
+      [Branch] Buyer2                            15                  16                  17
+        ▶️️BranchSt NotSupport
+        NotSupport                           (15,18)<-                               <-(17,20)
+        TwoNotBuy                            (18,21)->           ->(19,22)                
+        🚀Goto 0
+        ▶️️BranchSt Support
+        SupportVal                           (15,24)<-                               <-(17,26)
+        [Branch] Buyer                           24                  25                  26
+          ▶️️BranchSt Enough
+          TwoAccept                          (24,27)->           ->(25,28)                
+          TwoDate                            (27,30)<-           <-(28,31)                
+          TwoSuccess                         (30,33)->                               ->(32,35)
+          🚀Goto 0
+          ▶️️BranchSt NotEnough
+          TwoNotBuy1                         (24,36)->           ->(25,37)                
+          TwoFailed                          (36,39)->                               ->(38,41)
+          🍰Terminal
+      ▶️️BranchSt One
+      OneAfford                              (12,42)->                               ->(14,44)
+      OneAccept                              (42,45)->           ->(43,46)                
+      OneDate                                (45,48)<-           <-(46,49)                
+      OneSuccess                             (48,51)->                               ->(50,53)
+      🚀Goto 0
 ,--------------------Constrains-----------------
 fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 4 3,Constraint 5 14,Constraint 12 14,Constraint 13 16,Constraint 17 15,Constraint 16 19,Constraint 18 19,Constraint 20 23,Constraint 21 0,Constraint 22 1,Constraint 23 2,Constraint 17 15,Constraint 16 25,Constraint 24 25,Constraint 26 29,Constraint 28 27,Constraint 29 32,Constraint 30 32,Constraint 31 34,Constraint 33 0,Constraint 34 1,Constraint 35 2,Constraint 24 25,Constraint 26 38,Constraint 36 38,Constraint 37 40,Constraint 39 (-1),Constraint 40 (-1),Constraint 41 (-1),Constraint 12 14,Constraint 13 43,Constraint 42 43,Constraint 44 47,Constraint 46 45,Constraint 47 50,Constraint 48 50,Constraint 49 52,Constraint 51 0,Constraint 52 1,Constraint 53 2]
 ,--------------------SubMap-----------------
 fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,3),(14,1),(15,4),(16,3),(17,4),(18,3),(19,3),(20,1),(21,0),(22,0),(23,1),(24,3),(25,3),(26,5),(27,6),(28,6),(29,5),(30,5),(31,0),(32,5),(33,0),(34,0),(35,1),(36,5),(37,-1),(38,5),(39,-1),(40,-1),(41,-1),(42,3),(43,3),(44,7),(45,8),(46,8),(47,7),(48,7),(49,0),(50,7),(51,0),(52,0),(53,1)]
 ,--------------------GenConstN-----------------
----------------------------Buyer-------------------------Seller------------------------Buyer2
-LABEL 0                      0                             0                             1
-  Title                   (0,2)->                       ->(0,2)                           
-  [Branch] Seller            2                             2                             1
-    ▶️️BranchStNotFound
-    NoBook                (2,1)<-                       <-(2,0)                           
-    SellerNoBook          (1,0)->                                                     ->(1,1)
-    Goto 0
-    ▶️️BranchStFound
-    Price                 (2,1)<-                       <-(2,3)                           
-    [Branch] Buyer           1                             3                             1
-      ▶️️BranchStTwo
-      PriceToBuyer2       (1,4)->                                                     ->(1,4)
-      [Branch] Buyer2        4                             3                             4
-        ▶️️BranchStNotSupport
-        NotSupport        (4,3)<-                                                     <-(4,1)
-        TwoNotBuy         (3,0)->                       ->(3,0)                           
-        Goto 0
-        ▶️️BranchStSupport
-        SupportVal        (4,3)<-                                                     <-(4,5)
-        [Branch] Buyer       3                             3                             5
-          ▶️️BranchStEnough
-          TwoAccept       (3,6)->                       ->(3,6)                           
-          TwoDate         (6,5)<-                       <-(6,0)                           
-          TwoSuccess      (5,0)->                                                     ->(5,1)
-          Goto 0
-          ▶️️BranchStNotEnough
-          TwoNotBuy1      (3,5)->                       ->(3,-1)                          
-          TwoFailed       (5,-1)->                                                    ->(5,-1)
-          Terminal
-      ▶️️BranchStOne
-      OneAfford           (1,3)->                                                     ->(1,7)
-      OneAccept           (3,8)->                       ->(3,8)                           
-      OneDate             (8,7)<-                       <-(8,0)                           
-      OneSuccess          (7,0)->                                                     ->(7,1)
-      Goto 0
+-----------------------------------------------Buyer---------------Seller--------------Buyer2
+LABEL 0                                          0                   0                   1
+  Title                                       (0,2)->             ->(0,2)                 
+  [Branch] Seller                                2                   2                   1
+    ▶️️BranchSt NotFound
+    NoBook                                    (2,1)<-             <-(2,0)                 
+    SellerNoBook                              (1,0)->                                 ->(1,1)
+    🚀Goto 0
+    ▶️️BranchSt Found
+    Price                                     (2,1)<-             <-(2,3)                 
+    [Branch] Buyer                               1                   3                   1
+      ▶️️BranchSt Two
+      PriceToBuyer2                           (1,4)->                                 ->(1,4)
+      [Branch] Buyer2                            4                   3                   4
+        ▶️️BranchSt NotSupport
+        NotSupport                            (4,3)<-                                 <-(4,1)
+        TwoNotBuy                             (3,0)->             ->(3,0)                 
+        🚀Goto 0
+        ▶️️BranchSt Support
+        SupportVal                            (4,3)<-                                 <-(4,5)
+        [Branch] Buyer                           3                   3                   5
+          ▶️️BranchSt Enough
+          TwoAccept                           (3,6)->             ->(3,6)                 
+          TwoDate                             (6,5)<-             <-(6,0)                 
+          TwoSuccess                          (5,0)->                                 ->(5,1)
+          🚀Goto 0
+          ▶️️BranchSt NotEnough
+          TwoNotBuy1                          (3,5)->             ->(3,-1)                
+          TwoFailed                           (5,-1)->                                ->(5,-1)
+          🍰Terminal
+      ▶️️BranchSt One
+      OneAfford                               (1,3)->                                 ->(1,7)
+      OneAccept                               (3,8)->             ->(3,8)                 
+      OneDate                                 (8,7)<-             <-(8,0)                 
+      OneSuccess                              (7,0)->                                 ->(7,1)
+      🚀Goto 0
 ],Right Label ([0,0,1],0) 0
 Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller
 [Branch] [2,2,1] Seller

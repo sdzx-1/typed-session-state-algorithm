@@ -163,13 +163,13 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
       pure (restoreWrapper @Int)
   , \(_, (bst, _)) -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt" ++ show bst)]]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt " ++ show bst)]]
   , \(_, i) -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("Goto " ++ show i)]]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("🚀Goto " ++ show i)]]
   , \_ -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' "Terminal"]]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' "🍰Terminal"]]
   )
 
 getSF
@@ -185,7 +185,7 @@ getSF xst prot =
     . runState @Int 0
     $ do
       let header =
-            [CenterFill ((fromEnum r + 1) * width) '-' (show r) | r <- [minBound @r .. maxBound]]
+            [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- [minBound @r .. maxBound]]
       tell [header]
       (xfold (renderXFold xst) prot)
 
@@ -219,7 +219,7 @@ stAddNums :: forall r. (Enum r, Bounded r) => XStringFill AddNums r
 stAddNums =
   ( \(xs, ys) ->
       let zs = zip xs ys
-          rg = fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]
+          rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]
           res = zip rg zs
        in [CenterFill i ' ' $ show v | (i, v) <- res]
   , \_ -> []
@@ -233,12 +233,12 @@ stGenConst :: forall r. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenCons
 stGenConst =
   let
     too :: [Int] -> [StringFill]
-    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
+    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
    in
     ( \((xs, ys), (from, to)) ->
         let zs = zip xs ys
             is = [minBound @r .. maxBound]
-            rg = fmap ((width *) . (+ 1) . fromEnum) is
+            rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) is
             res = zip rg zs
             foo str i =
               if
