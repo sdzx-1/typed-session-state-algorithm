@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Render where
 
 import Data.Foldable (foldl')
@@ -6,6 +8,7 @@ import Type
 
 data StringFill
   = CenterFill Int Char String
+  | LeftAlign Int Char String
   deriving (Show)
 
 runCenterFill :: String -> StringFill -> String
@@ -15,10 +18,22 @@ runCenterFill startSt (CenterFill centerPoint c st) =
       rplen = (centerPoint - length startSt) - if odd stlen then hlen + 1 else hlen
       rpSt = replicate rplen c
    in startSt ++ rpSt ++ st
+runCenterFill startSt v@(LeftAlign leftAlignPoint c st) =
+  if leftAlignPoint < length startSt
+    then error $ "np: " ++ startSt ++ " " ++ show v
+    else
+      let repLen = leftAlignPoint - length startSt - 1
+          fillSt = replicate repLen c
+       in startSt ++ fillSt ++ st
+
+getPoint :: StringFill -> Int
+getPoint = \case
+  CenterFill cp _ _ -> cp
+  LeftAlign lp _ _ -> lp
 
 runCenterFills :: [StringFill] -> String
 runCenterFills ls =
-  let ls' = L.sortOn (\(CenterFill cp _ _) -> cp) ls
+  let ls' = L.sortOn getPoint ls
    in foldl' runCenterFill "" ls'
 
 width :: Int

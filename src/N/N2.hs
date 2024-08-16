@@ -4,6 +4,7 @@
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
@@ -33,6 +34,7 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import N.Type
 import N.Utils
+import Render
 
 ------------------------
 addNumsXTraverse
@@ -134,6 +136,67 @@ replXTraverse sbm =
   , pure . replaceList sbm . fst
   )
 
+type XStringFill eta r =
+  ( XMsg eta -> [StringFill]
+  , XLabel eta -> [StringFill]
+  , XBranch eta -> [StringFill]
+  , XGoto eta -> [StringFill]
+  , XTerminal eta -> [StringFill]
+  )
+
+renderXFold
+  :: forall r eta bst sig m
+   . ( Has (Writer [[StringFill]] :+: State Int) sig m
+     , ForallX Show eta
+     , Enum r
+     , Bounded r
+     , Show r
+     )
+  => XStringFill eta r -> XFold m eta r bst
+renderXFold (xmsg, xlabel, xbranch, _xgoto, _xterminal) =
+  ( \(_, prot) -> case prot of
+      Msg xv con _args _from _to :> _ -> do
+        indentVal <- get @Int
+        let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
+        tell [va ++ xmsg xv]
+      _ -> error "np"
+  , \(_, prot) -> case prot of
+      Label xv i :> _ -> do
+        tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
+      _ -> pure ()
+  , \(_, prot) -> case prot of
+      Branch xv r _ls -> do
+        indentVal <- get @Int
+        modify @Int (+ 1)
+        tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
+        pure (restoreWrapper @Int)
+      _ -> error "np"
+  , \(_, prot) -> case prot of
+      Goto _ i ->
+        tell [[LeftAlign 1 ' ' ("Goto " ++ show i)]]
+      _ -> error "np"
+  , \(_, prot) -> case prot of
+      _ ->
+        tell [[LeftAlign 1 ' ' "Terminal"]]
+  )
+
+getSF
+  :: forall r eta bst
+   . (ForallX Show eta, Enum r, Bounded r, Show r)
+  => XStringFill eta r -> Protocol eta r bst -> String
+getSF xst prot =
+  unlines
+    . fmap runCenterFills
+    . fst
+    . run
+    . runWriter @[[StringFill]]
+    . runState @Int 0
+    $ do
+      let header =
+            [CenterFill ((fromEnum r + 1) * width) '-' (show r) | r <- [minBound @r .. maxBound]]
+      tell [header]
+      (xfold (renderXFold xst) prot)
+
 data Tracer r bst
   = TraceProtocolCreat (Protocol Creat r bst)
   | TraceProtocolAddNum (Protocol AddNums r bst)
@@ -150,14 +213,64 @@ traceWrapper desc st =
     ++ st
     ++ "\n"
 
-instance (Show r, Show bst) => Show (Tracer r bst) where
+stCreat :: XStringFill Creat r
+stCreat =
+  ( \_ -> []
+  , \_ -> []
+  , \_ -> []
+  , \_ -> []
+  , \_ -> []
+  )
+
+stAddNums :: forall r. (Enum r, Bounded r) => XStringFill AddNums r
+stAddNums =
+  ( \(xs, ys) ->
+      let zs = zip xs ys
+          rg = fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]
+          res = zip rg zs
+       in [CenterFill i ' ' $ show v | (i, v) <- res]
+  , \_ -> []
+  , \_ -> []
+  , \_ -> []
+  , \_ -> []
+  )
+
+too :: forall r. (Enum r, Bounded r) => [Int] -> [StringFill]
+too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
+
+stGenConst :: forall r. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r
+stGenConst =
+  ( \((xs, ys), (from, to)) ->
+      let zs = zip xs ys
+          is = [minBound @r .. maxBound]
+          rg = fmap ((width *) . (+ 1) . fromEnum) is
+          res = zip rg zs
+          foo str i =
+            if
+              | i == from ->
+                  if from > to
+                    then "<-" ++ str
+                    else str ++ "->"
+              | i == to ->
+                  if from > to
+                    then str ++ "<-"
+                    else "->" ++ str
+              | otherwise -> ""
+       in [CenterFill ps ' ' $ foo (show v) i | (i, (ps, v)) <- zip is res]
+  , \(xs, _) -> too @r xs
+  , \xs -> too @r xs
+  , \_ -> []
+  , \_ -> []
+  )
+
+instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
   show = \case
-    TraceProtocolCreat p -> traceWrapper "Creat" $ show p
-    TraceProtocolAddNum p -> traceWrapper "AddNum" $ show p
-    TraceProtocolGenConst p -> traceWrapper "GenConst" $ show p
+    TraceProtocolCreat p -> traceWrapper "Creat" $ getSF stCreat p
+    TraceProtocolAddNum p -> traceWrapper "AddNum" $ getSF (stAddNums @r) p
+    TraceProtocolGenConst p -> traceWrapper "GenConst" $ getSF (stGenConst @r) p
     TraceConstraints p -> traceWrapper "Constrains" $ show p
     TraceSubMap p -> traceWrapper "SubMap" $ show p
-    TraceProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
+    TraceProtocolGenConstN p -> traceWrapper "GenConstN" $ getSF (stGenConst @r) p
 
 piple'
   :: forall r bst sig m
