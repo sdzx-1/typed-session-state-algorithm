@@ -192,7 +192,7 @@ data MsgT r bst
 type instance XMsg (MsgT r bst) = ((T bst, T bst, T bst), (r, r))
 type instance XLabel (MsgT r bst) = ([T bst], Int)
 type instance XBranch (MsgT r bst) = [T bst]
-type instance XBranchSt (MsgT r bst) = ()
+type instance XBranchSt (MsgT r bst) = [bst]
 type instance XGoto (MsgT r bst) = ()
 type instance XTerminal (MsgT r bst) = ()
 

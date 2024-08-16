@@ -183,7 +183,9 @@ genMsgTXTraverse =
   , \(ls, _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', restoreWrapper @[bst])
-  , \(_, (bst, _)) -> modify (bst :)
+  , \(_, (bst, _)) -> do
+      modify (bst :)
+      get
   , \_ -> pure ()
   , \_ -> pure ()
   )
@@ -266,7 +268,7 @@ renderXFold
      , Show bst
      )
   => XStringFill eta r bst -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
+renderXFold (xmsg, xlabel, xbranch, xbranchst, _xgoto, _xterminal) =
   ( \(xv, (con, _, _, _, _)) -> do
       indentVal <- get @Int
       let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
@@ -277,9 +279,10 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
       modify @Int (+ 1)
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
       pure (restoreWrapper @Int)
-  , \(_, (bst, _)) -> do
+  , \(xv, (bst, _)) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("▶️️BranchSt " ++ show bst)]]
+      tell [xbranchst xv]
   , \(_, i) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("🚀Goto " ++ show i)]]
