@@ -109,6 +109,21 @@ LABEL 0                                          0                   0          
     Stop                                      (0,1)->             ->(0,-1)                
     AStop                                     (1,-1)->                                ->(1,-1)
     🍰Terminal
+,--------------------CollectBranchDynVal-----------------
+fromList [0,1]
+,--------------------MsgT-----------------
+-----------------------------------------------Client--------------Server-------------Counter
+LABEL 0                                         S0 s                S0 s                S1 s
+  [Branch] Client                               S0 s                S0 s                S1 s
+    ▶️️BranchSt True
+    Ping                S0 [True ..]             S2                  S2
+    Pong                S2                      S1 s                S0 s
+    Add                 S1 [True ..]            S0 s                                    S1 s
+    🚀Goto 0
+    ▶️️BranchSt False
+    Stop                S0 [False ..]           S1 s                End
+    AStop               S1 [False ..]           End                                     End
+    🍰Terminal
 ],Right Label ([0,0,1],0) 0
 [Branch] [0,0,1] Client
   * BranchSt () True
@@ -342,6 +357,45 @@ LABEL 0                                          0                   0          
       OneAccept                               (3,8)->             ->(3,8)                 
       OneDate                                 (8,7)<-             <-(8,0)                 
       OneSuccess                              (7,0)->                                 ->(7,1)
+      🚀Goto 0
+,--------------------CollectBranchDynVal-----------------
+fromList [1,2,3,4,5]
+,--------------------MsgT-----------------
+-----------------------------------------------Buyer---------------Seller--------------Buyer2
+LABEL 0                                          S0                  S0                 S1 s
+  Title                 S0                      S2 s                S2 s
+  [Branch] Seller                               S2 s                S2 s                S1 s
+    ▶️️BranchSt NotFound
+    NoBook              S2 [NotFound ..]        S1 s                 S0
+    SellerNoBook        S1 [NotFound ..]         S0                                     S1 s
+    🚀Goto 0
+    ▶️️BranchSt Found
+    Price               S2 [Found ..]           S1 s                S3 s
+    [Branch] Buyer                              S1 s                S3 s                S1 s
+      ▶️️BranchSt Two
+      PriceToBuyer2     S1 [Two ..]             S4 s                                    S4 s
+      [Branch] Buyer2                           S4 s                S3 s                S4 s
+        ▶️️BranchSt NotSupport
+        NotSupport      S4 [NotSupport ..]      S3 s                                    S1 s
+        TwoNotBuy       S3 [NotSupport ..]       S0                  S0
+        🚀Goto 0
+        ▶️️BranchSt Support
+        SupportVal      S4 [Support ..]         S3 s                                    S5 s
+        [Branch] Buyer                          S3 s                S3 s                S5 s
+          ▶️️BranchSt Enough
+          TwoAccept     S3 [Enough ..]           S6                  S6
+          TwoDate       S6                      S5 s                 S0
+          TwoSuccess    S5 [Enough ..]           S0                                     S1 s
+          🚀Goto 0
+          ▶️️BranchSt NotEnough
+          TwoNotBuy1    S3 [NotEnough ..]       S5 s                End
+          TwoFailed     S5 [NotEnough ..]       End                                     End
+          🍰Terminal
+      ▶️️BranchSt One
+      OneAfford         S1 [One ..]             S3 s                                     S7
+      OneAccept         S3 [One ..]              S8                  S8
+      OneDate           S8                       S7                  S0
+      OneSuccess        S7                       S0                                     S1 s
       🚀Goto 0
 ],Right Label ([0,0,1],0) 0
 Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller

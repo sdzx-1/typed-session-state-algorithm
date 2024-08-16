@@ -21,6 +21,7 @@ import qualified Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
+import Control.Carrier.Reader (runReader)
 import Control.Carrier.State.Strict
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
@@ -152,11 +153,14 @@ genT
   => ([bst] -> Int -> T bst) -> Int -> m (T bst)
 genT foo i = do
   dynSet <- ask @(Set Int)
-  if Set.member i dynSet
-    then do
-      bst <- get
-      pure (foo bst i)
-    else pure $ TNum i
+  if i == -1
+    then pure (TEnd)
+    else
+      if Set.member i dynSet
+        then do
+          bst <- get
+          pure (foo bst i)
+        else pure $ TNum i
 
 genMsgTXTraverse
   :: forall r bst sig m
@@ -195,28 +199,34 @@ piple'
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
   -> m (Protocol (GenConst r) r bst)
-piple' trace prot = do
-  trace (TraceProtocolCreat prot)
-  prot' <-
+piple' trace prot0 = do
+  trace (TraceProtocolCreat prot0)
+  prot1 <-
     fmap (snd . snd)
       . runFresh 1
       . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
-      $ xtraverse addNumsXTraverse prot
-  trace (TraceProtocolAddNum prot')
-  prot'' <- xtraverse toGenConstrXTraverse prot'
-  trace (TraceProtocolGenConst prot'')
+      $ xtraverse addNumsXTraverse prot0
+  trace (TraceProtocolAddNum prot1)
+  prot2 <- xtraverse toGenConstrXTraverse prot1
+  trace (TraceProtocolGenConst prot2)
   (constraintList, _) <-
     runWriter @(Seq C.Constraint)
       . runState @(IntMap [Int]) (IntMap.empty)
-      $ xfold genConstrXFold prot''
+      $ xfold genConstrXFold prot2
   trace (TraceConstraints constraintList)
   let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
   trace (TraceSubMap sbm)
-  prot''' <- xtraverse (replXTraverse sbm) prot''
-  trace (TraceProtocolGenConstN prot''')
-  dnys <- fst <$> runState @((Set Int)) (Set.empty) (xfold collectBranchDynValXFold prot''')
+  prot3 <- xtraverse (replXTraverse sbm) prot2
+  trace (TraceProtocolGenConstN prot3)
+  dnys <- fst <$> runState @((Set Int)) (Set.empty) (xfold collectBranchDynValXFold prot3)
   trace (TraceCollectBranchDynVal dnys)
-  pure prot'''
+  prot4 <-
+    fmap snd
+      . runReader @(Set Int) dnys
+      . runState @[bst] []
+      $ (xtraverse genMsgTXTraverse prot3)
+  trace (TraceProtocolMsgT prot4)
+  pure prot3
 
 piple
   :: forall r bst
@@ -237,7 +247,7 @@ pipleWithTracer protocol =
     . runError @(ProtocolError r bst)
     $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
 
-type XStringFill eta r =
+type XStringFill eta r bst =
   ( XMsg eta -> [StringFill]
   , XLabel eta -> [StringFill]
   , XBranch eta -> [StringFill]
@@ -255,7 +265,7 @@ renderXFold
      , Show r
      , Show bst
      )
-  => XStringFill eta r -> XFold m eta r bst
+  => XStringFill eta r bst -> XFold m eta r bst
 renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
   ( \(xv, (con, _, _, _, _)) -> do
       indentVal <- get @Int
@@ -281,7 +291,7 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, _xgoto, _xterminal) =
 getSF
   :: forall r eta bst
    . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
-  => XStringFill eta r -> Protocol eta r bst -> String
+  => XStringFill eta r bst -> Protocol eta r bst -> String
 getSF xst prot =
   unlines
     . fmap runCenterFills
@@ -303,6 +313,7 @@ data Tracer r bst
   | TraceSubMap C.SubMap
   | TraceProtocolGenConstN (Protocol (GenConst r) r bst)
   | TraceCollectBranchDynVal (Set Int)
+  | TraceProtocolMsgT (Protocol (MsgT r bst) r bst)
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -312,7 +323,7 @@ traceWrapper desc st =
     ++ st
     ++ "\n"
 
-stCreat :: XStringFill Creat r
+stCreat :: XStringFill Creat r bst
 stCreat =
   ( \_ -> []
   , \_ -> []
@@ -322,7 +333,7 @@ stCreat =
   , \_ -> []
   )
 
-stAddNums :: forall r. (Enum r, Bounded r) => XStringFill AddNums r
+stAddNums :: forall r bst. (Enum r, Bounded r) => XStringFill AddNums r bst
 stAddNums =
   ( \(xs, ys) ->
       let zs = zip xs ys
@@ -336,7 +347,7 @@ stAddNums =
   , \_ -> []
   )
 
-stGenConst :: forall r. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r
+stGenConst :: forall r bst. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r bst
 stGenConst =
   let
     too :: [Int] -> [StringFill]
@@ -366,6 +377,29 @@ stGenConst =
     , \_ -> []
     )
 
+stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => XStringFill (MsgT r bst) r bst
+stMsgT =
+  let
+    too :: [T bst] -> [StringFill]
+    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
+   in
+    ( \((a, b, c), (from, to)) ->
+        let is = [minBound @r .. maxBound]
+            rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) is
+
+            from' = rg !! fromEnum from
+            to' = rg !! fromEnum to
+         in [ LeftAlign 25 ' ' (show a)
+            , CenterFill from' ' ' (show b)
+            , CenterFill to' ' ' (show c)
+            ]
+    , \(xs, _) -> too xs
+    , \xs -> too xs
+    , \_ -> []
+    , \_ -> []
+    , \_ -> []
+    )
+
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
   show = \case
     TraceProtocolCreat p -> traceWrapper "Creat" $ getSF stCreat p
@@ -375,3 +409,4 @@ instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bs
     TraceSubMap p -> traceWrapper "SubMap" $ show p
     TraceProtocolGenConstN p -> traceWrapper "GenConstN" $ getSF (stGenConst @r) p
     TraceCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
+    TraceProtocolMsgT p -> traceWrapper "MsgT" $ getSF (stMsgT @r) p

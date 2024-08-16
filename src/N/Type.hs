@@ -179,11 +179,13 @@ data T bst
   = TNum Int
   | BstList Int [bst]
   | TAny Int
+  | TEnd
 instance (Show bst) => Show (T bst) where
   show = \case
     TNum i -> "S" ++ show i
-    BstList i ls -> "S" ++ show i ++ " " ++ show ls
+    BstList i ls -> "S" ++ show i ++ " [" ++ show (head ls) ++ " ..]"
     TAny i -> "S" ++ show i ++ " s"
+    TEnd -> "End"
 
 data MsgT r bst
 
