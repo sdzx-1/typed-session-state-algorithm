@@ -24,6 +24,7 @@ import Control.Carrier.Fresh.Strict
 import Control.Carrier.State.Strict
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.Error
+import Control.Effect.Reader
 import Control.Effect.Writer
 import Control.Monad
 import Data.Foldable (Foldable (toList))
@@ -141,6 +142,44 @@ collectBranchDynValXFold =
       modify (`Set.union` (Set.fromList ls))
       pure id
   , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
+genT
+  :: forall bst sig m
+   . (Has (Reader (Set Int) :+: State [bst]) sig m)
+  => ([bst] -> Int -> T bst) -> Int -> m (T bst)
+genT foo i = do
+  dynSet <- ask @(Set Int)
+  if Set.member i dynSet
+    then do
+      bst <- get
+      pure (foo bst i)
+    else pure $ TNum i
+
+genMsgTXTraverse
+  :: forall r bst sig m
+   . (Has (Reader (Set Int) :+: State [bst]) sig m, Enum r)
+  => XTraverse m (GenConst r) (MsgT r bst) r bst
+genMsgTXTraverse =
+  ( \(((is, os), (from, to)), _) -> do
+      let from' = fromEnum from
+          to' = fromEnum to
+          startSt = is !! from'
+          senderSt = os !! from'
+          recverSt = os !! to'
+      startSt' <- genT @bst (\bs i -> BstList i bs) startSt
+      senderSt' <- genT @bst (const TAny) senderSt
+      recverSt' <- genT @bst (const TAny) recverSt
+      pure ((startSt', senderSt', recverSt'), (from, to))
+  , \((ls, idx), _) -> do
+      ls' <- mapM (genT (const TAny)) ls
+      pure (ls', idx)
+  , \(ls, _) -> do
+      ls' <- mapM (genT (const TAny)) ls
+      pure (ls', restoreWrapper @[bst])
+  , \(_, (bst, _)) -> modify (bst :)
   , \_ -> pure ()
   , \_ -> pure ()
   )
