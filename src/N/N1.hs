@@ -53,55 +53,49 @@ v1 =
 
 -- >>> error $ show (pipleWithTracer v1)
 -- (fromList [--------------------Creat-----------------
--- ---------------------------Client------------------------Server---------------------------Counter
+-- ---------------------------Client------------------------Server-----------------------Counter
 -- LABEL 0
---      Ping                    |            ----->           |
---      Pong                    |            <-----           |
---      Add                     |                           ----->                          |
+--      Ping
+--      Pong
+--      Add
 -- Goto 0
---      Stop                    |            ----->           |
---      AStop                   |                           ----->                          |
+--      Stop
+--      AStop
 -- Terminal
 -- ,--------------------AddNum-----------------
--- Label [0,1,2] 0
--- [Branch] [0,1,2] Client
---   * BranchSt True
---   Msg <([0,1,2],[3,4,5])> Ping [] Client Server
---   Msg <([3,4,5],[6,7,8])> Pong [] Server Client
---   Msg <([6,7,8],[9,10,11])> Add [] Client Counter
---   Goto [9,10,11] 0
---   * BranchSt False
---   Msg <([0,1,2],[12,13,14])> Stop [] Client Server
---   Msg <([12,13,14],[15,16,17])> AStop [] Client Counter
---   Terminal [15,16,17]
+-- ---------------------------Client------------------------Server-----------------------Counter
+-- LABEL 0
+--      Ping                  (0,3)                         (1,4)                         (2,5)
+--      Pong                  (3,6)                         (4,7)                         (5,8)
+--      Add                   (6,9)                         (7,10)                        (8,11)
+-- Goto 0
+--      Stop                  (0,12)                        (1,13)                        (2,14)
+--      AStop                (12,15)                       (13,16)                       (14,17)
+-- Terminal
 -- ,--------------------GenConst-----------------
--- Label ([0,1,2],0) 0
--- [Branch] [0,1,2] Client
---   * BranchSt True
---   Msg <(([0,1,2],[3,4,5]),(Client,Server))> Ping [] Client Server
---   Msg <(([3,4,5],[6,7,8]),(Server,Client))> Pong [] Server Client
---   Msg <(([6,7,8],[9,10,11]),(Client,Counter))> Add [] Client Counter
---   Goto ([9,10,11],0) 0
---   * BranchSt False
---   Msg <(([0,1,2],[12,13,14]),(Client,Server))> Stop [] Client Server
---   Msg <(([12,13,14],[15,16,17]),(Client,Counter))> AStop [] Client Counter
---   Terminal [15,16,17]
+-- ---------------------------Client------------------------Server-----------------------Counter
+-- LABEL 0                      0                             1                             2
+--      Ping                 (0,3)->                       ->(1,4)
+--      Pong                 (3,6)<-                       <-(4,7)
+--      Add                  (6,9)->                                                     ->(8,11)
+-- Goto 0
+--      Stop                 (0,12)->                      ->(1,13)
+--      AStop               (12,15)->                                                   ->(14,17)
+-- Terminal
 -- ,--------------------Constrains-----------------
 -- fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
 -- ,--------------------SubMap-----------------
 -- fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
 -- ,--------------------GenConstN-----------------
--- Label ([0,0,1],0) 0
--- [Branch] [0,0,1] Client
---   * BranchSt True
---   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
---   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
---   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
---   Goto ([0,0,1],0) 0
---   * BranchSt False
---   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
---   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
---   Terminal [-1,-1,-1]
+-- ---------------------------Client------------------------Server-----------------------Counter
+-- LABEL 0                      0                             0                             1
+--      Ping                 (0,2)->                       ->(0,2)
+--      Pong                 (2,1)<-                       <-(2,0)
+--      Add                  (1,0)->                                                     ->(1,1)
+-- Goto 0
+--      Stop                 (0,1)->                       ->(0,-1)
+--      AStop                (1,-1)->                                                    ->(1,-1)
+-- Terminal
 -- ],Right Label ([0,0,1],0) 0
 -- [Branch] [0,0,1] Client
 --   * BranchSt True
@@ -253,135 +247,128 @@ v2 =
               ]
       ]
 
-
 {-
 >>> error $ show (pipleWithTracer v2)
 (fromList [--------------------Creat-----------------
 ---------------------------Buyer-------------------------Seller------------------------Buyer2
 LABEL 0
-   Title
-     NoBook
-     SellerNoBook
+  Title
+  [Branch] Seller
+    NoBook
+    SellerNoBook
 Goto 0
-     Price
-       PriceToBuyer2
-         NotSupport
-         TwoNotBuy
+    Price
+    [Branch] Buyer
+      PriceToBuyer2
+      [Branch] Buyer2
+        NotSupport
+        TwoNotBuy
 Goto 0
-         SupportVal
-           TwoAccept
-           TwoDate
-           TwoSuccess
+        SupportVal
+        [Branch] Buyer
+          TwoAccept
+          TwoDate
+          TwoSuccess
 Goto 0
-           TwoNotBuy1
-           TwoFailed
+          TwoNotBuy1
+          TwoFailed
 Terminal
-       OneAfford
-       OneAccept
-       OneDate
-       OneSuccess
+      OneAfford
+      OneAccept
+      OneDate
+      OneSuccess
 Goto 0
 ,--------------------AddNum-----------------
 ---------------------------Buyer-------------------------Seller------------------------Buyer2
 LABEL 0
-   Title                   (0,3)                         (1,4)                         (2,5)
-     NoBook                (3,6)                         (4,7)                         (5,8)
-     SellerNoBook          (6,9)                         (7,10)                        (8,11)
+  Title                    (0,3)                         (1,4)                         (2,5)
+  [Branch] Seller
+    NoBook                 (3,6)                         (4,7)                         (5,8)
+    SellerNoBook           (6,9)                         (7,10)                        (8,11)
 Goto 0
-     Price                 (3,12)                        (4,13)                        (5,14)
-       PriceToBuyer2      (12,15)                       (13,16)                       (14,17)
-         NotSupport       (15,18)                       (16,19)                       (17,20)
-         TwoNotBuy        (18,21)                       (19,22)                       (20,23)
+    Price                  (3,12)                        (4,13)                        (5,14)
+    [Branch] Buyer
+      PriceToBuyer2       (12,15)                       (13,16)                       (14,17)
+      [Branch] Buyer2
+        NotSupport        (15,18)                       (16,19)                       (17,20)
+        TwoNotBuy         (18,21)                       (19,22)                       (20,23)
 Goto 0
-         SupportVal       (15,24)                       (16,25)                       (17,26)
-           TwoAccept      (24,27)                       (25,28)                       (26,29)
-           TwoDate        (27,30)                       (28,31)                       (29,32)
-           TwoSuccess     (30,33)                       (31,34)                       (32,35)
+        SupportVal        (15,24)                       (16,25)                       (17,26)
+        [Branch] Buyer
+          TwoAccept       (24,27)                       (25,28)                       (26,29)
+          TwoDate         (27,30)                       (28,31)                       (29,32)
+          TwoSuccess      (30,33)                       (31,34)                       (32,35)
 Goto 0
-           TwoNotBuy1     (24,36)                       (25,37)                       (26,38)
-           TwoFailed      (36,39)                       (37,40)                       (38,41)
+          TwoNotBuy1      (24,36)                       (25,37)                       (26,38)
+          TwoFailed       (36,39)                       (37,40)                       (38,41)
 Terminal
-       OneAfford          (12,42)                       (13,43)                       (14,44)
-       OneAccept          (42,45)                       (43,46)                       (44,47)
-       OneDate            (45,48)                       (46,49)                       (47,50)
-       OneSuccess         (48,51)                       (49,52)                       (50,53)
+      OneAfford           (12,42)                       (13,43)                       (14,44)
+      OneAccept           (42,45)                       (43,46)                       (44,47)
+      OneDate             (45,48)                       (46,49)                       (47,50)
+      OneSuccess          (48,51)                       (49,52)                       (50,53)
 Goto 0
 ,--------------------GenConst-----------------
-Label ([0,1,2],0) 0
-Msg <(([0,1,2],[3,4,5]),(Buyer,Seller))> Title [] Buyer Seller
-[Branch] [3,4,5] Seller
-  * BranchSt NotFound
-  Msg <(([3,4,5],[6,7,8]),(Seller,Buyer))> NoBook [] Seller Buyer
-  Msg <(([6,7,8],[9,10,11]),(Buyer,Buyer2))> SellerNoBook [] Buyer Buyer2
-  Goto ([9,10,11],0) 0
-  * BranchSt Found
-  Msg <(([3,4,5],[12,13,14]),(Seller,Buyer))> Price [] Seller Buyer
-  [Branch] [12,13,14] Buyer
-    * BranchSt Two
-    Msg <(([12,13,14],[15,16,17]),(Buyer,Buyer2))> PriceToBuyer2 [] Buyer Buyer2
-    [Branch] [15,16,17] Buyer2
-      * BranchSt NotSupport
-      Msg <(([15,16,17],[18,19,20]),(Buyer2,Buyer))> NotSupport [] Buyer2 Buyer
-      Msg <(([18,19,20],[21,22,23]),(Buyer,Seller))> TwoNotBuy [] Buyer Seller
-      Goto ([21,22,23],0) 0
-      * BranchSt Support
-      Msg <(([15,16,17],[24,25,26]),(Buyer2,Buyer))> SupportVal [] Buyer2 Buyer
-      [Branch] [24,25,26] Buyer
-        * BranchSt Enough
-        Msg <(([24,25,26],[27,28,29]),(Buyer,Seller))> TwoAccept [] Buyer Seller
-        Msg <(([27,28,29],[30,31,32]),(Seller,Buyer))> TwoDate [] Seller Buyer
-        Msg <(([30,31,32],[33,34,35]),(Buyer,Buyer2))> TwoSuccess [  ] Buyer Buyer2
-        Goto ([33,34,35],0) 0
-        * BranchSt NotEnough
-        Msg <(([24,25,26],[36,37,38]),(Buyer,Seller))> TwoNotBuy1 [  ] Buyer Seller
-        Msg <(([36,37,38],[39,40,41]),(Buyer,Buyer2))> TwoFailed [] Buyer Buyer2
-        Terminal [39,40,41]
-    * BranchSt One
-    Msg <(([12,13,14],[42,43,44]),(Buyer,Buyer2))> OneAfford [] Buyer Buyer2
-    Msg <(([42,43,44],[45,46,47]),(Buyer,Seller))> OneAccept [] Buyer Seller
-    Msg <(([45,46,47],[48,49,50]),(Seller,Buyer))> OneDate [] Seller Buyer
-    Msg <(([48,49,50],[51,52,53]),(Buyer,Buyer2))> OneSuccess [] Buyer Buyer2
-    Goto ([51,52,53],0) 0
+---------------------------Buyer-------------------------Seller------------------------Buyer2
+LABEL 0                      0                             1                             2
+  Title                   (0,3)->                       ->(1,4)
+  [Branch] Seller            3                             4                             5
+    NoBook                (3,6)<-                       <-(4,7)
+    SellerNoBook          (6,9)->                                                     ->(8,11)
+Goto 0
+    Price                 (3,12)<-                      <-(4,13)
+    [Branch] Buyer           12                            13                            14
+      PriceToBuyer2      (12,15)->                                                   ->(14,17)
+      [Branch] Buyer2        15                            16                            17
+        NotSupport       (15,18)<-                                                   <-(17,20)
+        TwoNotBuy        (18,21)->                     ->(19,22)
+Goto 0
+        SupportVal       (15,24)<-                                                   <-(17,26)
+        [Branch] Buyer       24                            25                            26
+          TwoAccept      (24,27)->                     ->(25,28)
+          TwoDate        (27,30)<-                     <-(28,31)
+          TwoSuccess     (30,33)->                                                   ->(32,35)
+Goto 0
+          TwoNotBuy1     (24,36)->                     ->(25,37)
+          TwoFailed      (36,39)->                                                   ->(38,41)
+Terminal
+      OneAfford          (12,42)->                                                   ->(14,44)
+      OneAccept          (42,45)->                     ->(43,46)
+      OneDate            (45,48)<-                     <-(46,49)
+      OneSuccess         (48,51)->                                                   ->(50,53)
+Goto 0
 ,--------------------Constrains-----------------
 fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 4 3,Constraint 5 14,Constraint 12 14,Constraint 13 16,Constraint 17 15,Constraint 16 19,Constraint 18 19,Constraint 20 23,Constraint 21 0,Constraint 22 1,Constraint 23 2,Constraint 17 15,Constraint 16 25,Constraint 24 25,Constraint 26 29,Constraint 28 27,Constraint 29 32,Constraint 30 32,Constraint 31 34,Constraint 33 0,Constraint 34 1,Constraint 35 2,Constraint 24 25,Constraint 26 38,Constraint 36 38,Constraint 37 40,Constraint 39 (-1),Constraint 40 (-1),Constraint 41 (-1),Constraint 12 14,Constraint 13 43,Constraint 42 43,Constraint 44 47,Constraint 46 45,Constraint 47 50,Constraint 48 50,Constraint 49 52,Constraint 51 0,Constraint 52 1,Constraint 53 2]
 ,--------------------SubMap-----------------
 fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,3),(14,1),(15,4),(16,3),(17,4),(18,3),(19,3),(20,1),(21,0),(22,0),(23,1),(24,3),(25,3),(26,5),(27,6),(28,6),(29,5),(30,5),(31,0),(32,5),(33,0),(34,0),(35,1),(36,5),(37,-1),(38,5),(39,-1),(40,-1),(41,-1),(42,3),(43,3),(44,7),(45,8),(46,8),(47,7),(48,7),(49,0),(50,7),(51,0),(52,0),(53,1)]
 ,--------------------GenConstN-----------------
-Label ([0,0,1],0) 0
-Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller
-[Branch] [2,2,1] Seller
-  * BranchSt NotFound
-  Msg <(([2,2,1],[1,0,1]),(Seller,Buyer))> NoBook [] Seller Buyer
-  Msg <(([1,0,1],[0,0,1]),(Buyer,Buyer2))> SellerNoBook [] Buyer Buyer2
-  Goto ([0,0,1],0) 0
-  * BranchSt Found
-  Msg <(([2,2,1],[1,3,1]),(Seller,Buyer))> Price [] Seller Buyer
-  [Branch] [1,3,1] Buyer
-    * BranchSt Two
-    Msg <(([1,3,1],[4,3,4]),(Buyer,Buyer2))> PriceToBuyer2 [] Buyer Buyer2
-    [Branch] [4,3,4] Buyer2
-      * BranchSt NotSupport
-      Msg <(([4,3,4],[3,3,1]),(Buyer2,Buyer))> NotSupport [] Buyer2 Buyer
-      Msg <(([3,3,1],[0,0,1]),(Buyer,Seller))> TwoNotBuy [] Buyer Seller
-      Goto ([0,0,1],0) 0
-      * BranchSt Support
-      Msg <(([4,3,4],[3,3,5]),(Buyer2,Buyer))> SupportVal [] Buyer2 Buyer
-      [Branch] [3,3,5] Buyer
-        * BranchSt Enough
-        Msg <(([3,3,5],[6,6,5]),(Buyer,Seller))> TwoAccept [] Buyer Seller
-        Msg <(([6,6,5],[5,0,5]),(Seller,Buyer))> TwoDate [] Seller Buyer
-        Msg <(([5,0,5],[0,0,1]),(Buyer,Buyer2))> TwoSuccess [] Buyer Buyer2
-        Goto ([0,0,1],0) 0
-        * BranchSt NotEnough
-        Msg <(([3,3,5],[5,-1,5]),(Buyer,Seller))> TwoNotBuy1 [] Buyer Seller
-        Msg <(([5,-1,5],[-1,-1,-1]),(Buyer,Buyer2))> TwoFailed [] Buyer Buyer2
-        Terminal [-1,-1,-1]
-    * BranchSt One
-    Msg <(([1,3,1],[3,3,7]),(Buyer,Buyer2))> OneAfford [] Buyer Buyer2
-    Msg <(([3,3,7],[8,8,7]),(Buyer,Seller))> OneAccept [] Buyer Seller
-    Msg <(([8,8,7],[7,0,7]),(Seller,Buyer))> OneDate [] Seller Buyer
-    Msg <(([7,0,7],[0,0,1]),(Buyer,Buyer2))> OneSuccess [] Buyer Buyer2
-    Goto ([0,0,1],0) 0
+---------------------------Buyer-------------------------Seller------------------------Buyer2
+LABEL 0                      0                             0                             1
+  Title                   (0,2)->                       ->(0,2)
+  [Branch] Seller            2                             2                             1
+    NoBook                (2,1)<-                       <-(2,0)
+    SellerNoBook          (1,0)->                                                     ->(1,1)
+Goto 0
+    Price                 (2,1)<-                       <-(2,3)
+    [Branch] Buyer           1                             3                             1
+      PriceToBuyer2       (1,4)->                                                     ->(1,4)
+      [Branch] Buyer2        4                             3                             4
+        NotSupport        (4,3)<-                                                     <-(4,1)
+        TwoNotBuy         (3,0)->                       ->(3,0)
+Goto 0
+        SupportVal        (4,3)<-                                                     <-(4,5)
+        [Branch] Buyer       3                             3                             5
+          TwoAccept       (3,6)->                       ->(3,6)
+          TwoDate         (6,5)<-                       <-(6,0)
+          TwoSuccess      (5,0)->                                                     ->(5,1)
+Goto 0
+          TwoNotBuy1      (3,5)->                       ->(3,-1)
+          TwoFailed       (5,-1)->                                                    ->(5,-1)
+Terminal
+      OneAfford           (1,3)->                                                     ->(1,7)
+      OneAccept           (3,8)->                       ->(3,8)
+      OneDate             (8,7)<-                       <-(8,0)
+      OneSuccess          (7,0)->                                                     ->(7,1)
+Goto 0
 ],Right Label ([0,0,1],0) 0
 Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller
 [Branch] [2,2,1] Seller
@@ -417,4 +404,5 @@ Msg <(([0,0,1],[2,2,1]),(Buyer,Seller))> Title [] Buyer Seller
     Msg <(([8,8,7],[7,0,7]),(Seller,Buyer))> OneDate [] Seller Buyer
     Msg <(([7,0,7],[0,0,1]),(Buyer,Buyer2))> OneSuccess [] Buyer Buyer2
     Goto ([0,0,1],0) 0)
+
 -}
