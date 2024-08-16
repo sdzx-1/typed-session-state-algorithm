@@ -35,9 +35,6 @@ pattern Terminal = N.Terminal ()
 data PingPong = Client | Server | Counter
   deriving (Show, Eq, Ord, Enum, Bounded)
 
-instance Pretty PingPong where
-  pretty = pretty . show
-
 v1 :: Protocol Creat PingPong Bool
 v1 =
   Label 0
@@ -68,57 +65,56 @@ v1 =
 --   Msg <()> AStop [] Client Counter
 --   Terminal ()
 -- ,--------------------AddNum-----------------
--- Label [0, 1, 2] 0
--- [Branch] [0, 1, 2] Client
+-- Label [0,1,2] 0
+-- [Branch] [0,1,2] Client
 --   * BranchSt True
---   Msg <([0, 1, 2], [3, 4, 5])> Ping [] Client Server
---   Msg <([3, 4, 5], [6, 7, 8])> Pong [] Server Client
---   Msg <([6, 7, 8], [9, 10, 11])> Add [] Client Counter
---   Goto [9, 10, 11] 0
+--   Msg <([0,1,2],[3,4,5])> Ping [] Client Server
+--   Msg <([3,4,5],[6,7,8])> Pong [] Server Client
+--   Msg <([6,7,8],[9,10,11])> Add [] Client Counter
+--   Goto [9,10,11] 0
 --   * BranchSt False
---   Msg <([0, 1, 2], [12, 13, 14])> Stop [] Client Server
---   Msg <([12, 13, 14], [15, 16, 17])> AStop [] Client Counter
---   Terminal [15, 16, 17]
+--   Msg <([0,1,2],[12,13,14])> Stop [] Client Server
+--   Msg <([12,13,14],[15,16,17])> AStop [] Client Counter
+--   Terminal [15,16,17]
 -- ,--------------------GenConst-----------------
--- Label ([0, 1, 2], 0) 0
--- [Branch] [0, 1, 2] Client
+-- Label ([0,1,2],0) 0
+-- [Branch] [0,1,2] Client
 --   * BranchSt True
---   Msg <(([0, 1, 2], [3, 4, 5]), (Client, Server))> Ping [] Client Server
---   Msg <(([3, 4, 5], [6, 7, 8]), (Server, Client))> Pong [] Server Client
---   Msg <(([6, 7, 8], [9, 10, 11]), (Client, Counter))> Add [] Client Counter
---   Goto ([9, 10, 11], 0) 0
+--   Msg <(([0,1,2],[3,4,5]),(Client,Server))> Ping [] Client Server
+--   Msg <(([3,4,5],[6,7,8]),(Server,Client))> Pong [] Server Client
+--   Msg <(([6,7,8],[9,10,11]),(Client,Counter))> Add [] Client Counter
+--   Goto ([9,10,11],0) 0
 --   * BranchSt False
---   Msg <(([0, 1, 2], [12, 13, 14]), (Client, Server))> Stop [] Client Server
---   Msg <( ([12, 13, 14], [15, 16, 17])
---   , (Client, Counter) )> AStop [] Client Counter
---   Terminal [15, 16, 17]
+--   Msg <(([0,1,2],[12,13,14]),(Client,Server))> Stop [] Client Server
+--   Msg <(([12,13,14],[15,16,17]),(Client,Counter))> AStop [] Client Counter
+--   Terminal [15,16,17]
 -- ,--------------------Constrains-----------------
 -- fromList [Constraint 0 1,Constraint 2 5,Constraint 4 3,Constraint 5 8,Constraint 6 8,Constraint 7 10,Constraint 9 0,Constraint 10 1,Constraint 11 2,Constraint 0 1,Constraint 2 14,Constraint 12 14,Constraint 13 16,Constraint 15 (-1),Constraint 16 (-1),Constraint 17 (-1)]
 -- ,--------------------SubMap-----------------
 -- fromList [(1,0),(2,1),(3,2),(4,2),(5,1),(6,1),(7,0),(8,1),(9,0),(10,0),(11,1),(12,1),(13,-1),(14,1),(15,-1),(16,-1),(17,-1)]
 -- ,--------------------GenConstN-----------------
--- Label ([0, 0, 1], 0) 0
--- [Branch] [0, 0, 1] Client
+-- Label ([0,0,1],0) 0
+-- [Branch] [0,0,1] Client
 --   * BranchSt True
---   Msg <(([0, 0, 1], [2, 2, 1]), (Client, Server))> Ping [] Client Server
---   Msg <(([2, 2, 1], [1, 0, 1]), (Server, Client))> Pong [] Server Client
---   Msg <(([1, 0, 1], [0, 0, 1]), (Client, Counter))> Add [] Client Counter
---   Goto ([0, 0, 1], 0) 0
+--   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
+--   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
+--   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
+--   Goto ([0,0,1],0) 0
 --   * BranchSt False
---   Msg <(([0, 0, 1], [1, -1, 1]), (Client, Server))> Stop [] Client Server
---   Msg <(([1, -1, 1], [-1, -1, -1]), (Client, Counter))> AStop [] Client Counter
---   Terminal [-1, -1, -1]
--- ],Right Label ([0, 0, 1], 0) 0
--- [Branch] [0, 0, 1] Client
+--   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
+--   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
+--   Terminal [-1,-1,-1]
+-- ],Right Label ([0,0,1],0) 0
+-- [Branch] [0,0,1] Client
 --   * BranchSt True
---   Msg <(([0, 0, 1], [2, 2, 1]), (Client, Server))> Ping [] Client Server
---   Msg <(([2, 2, 1], [1, 0, 1]), (Server, Client))> Pong [] Server Client
---   Msg <(([1, 0, 1], [0, 0, 1]), (Client, Counter))> Add [] Client Counter
---   Goto ([0, 0, 1], 0) 0
+--   Msg <(([0,0,1],[2,2,1]),(Client,Server))> Ping [] Client Server
+--   Msg <(([2,2,1],[1,0,1]),(Server,Client))> Pong [] Server Client
+--   Msg <(([1,0,1],[0,0,1]),(Client,Counter))> Add [] Client Counter
+--   Goto ([0,0,1],0) 0
 --   * BranchSt False
---   Msg <(([0, 0, 1], [1, -1, 1]), (Client, Server))> Stop [] Client Server
---   Msg <(([1, -1, 1], [-1, -1, -1]), (Client, Counter))> AStop [] Client Counter
---   Terminal [-1, -1, -1])
+--   Msg <(([0,0,1],[1,-1,1]),(Client,Server))> Stop [] Client Server
+--   Msg <(([1,-1,1],[-1,-1,-1]),(Client,Counter))> AStop [] Client Counter
+--   Terminal [-1,-1,-1])
 
 -- Right Label () 0
 -- [Branch] () Client

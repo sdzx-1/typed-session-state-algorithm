@@ -33,8 +33,6 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import N.Type
 import N.Utils
-import Prettyprinter (Pretty)
-import Prelude hiding (traverse)
 
 ------------------------
 addNumsXTraverse
@@ -152,7 +150,7 @@ traceWrapper desc st =
     ++ st
     ++ "\n"
 
-instance (Pretty r, Show r, Show bst) => Show (Tracer r bst) where
+instance (Show r, Show bst) => Show (Tracer r bst) where
   show = \case
     TraceProtocolCreat p -> traceWrapper "Creat" $ show p
     TraceProtocolAddNum p -> traceWrapper "AddNum" $ show p

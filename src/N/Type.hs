@@ -36,48 +36,11 @@ type ForallX (f :: Type -> Constraint) eta =
 data BranchSt eta r bst = BranchSt bst (Protocol eta r bst)
   deriving (Functor)
 
-instance
-  ( Pretty (Protocol eta r bst)
-  , Show bst
-  )
-  => Pretty (BranchSt eta r bst)
-  where
-  pretty (BranchSt bst prot) = "* BranchSt" <+> pretty (show bst) <> line <> (pretty prot)
-
-instance
-  ( Pretty (Protocol eta r bst)
-  , Show bst
-  )
-  => Show (BranchSt eta r bst)
-  where
-  show = renderString . layoutPretty defaultLayoutOptions . pretty
-
 -- | MsgOrLabel
 data MsgOrLabel eta r
   = Msg (XMsg eta) String [String] r r
   | Label (XLabel eta) Int
   deriving (Functor)
-
-instance
-  ( Pretty (XMsg eta)
-  , Pretty (XLabel eta)
-  , Show r
-  )
-  => Pretty (MsgOrLabel eta r)
-  where
-  pretty = \case
-    Msg xv cst args from to ->
-      hsep ["Msg", angles (pretty xv), pretty cst, pretty args, pretty (show from), pretty (show to)]
-    Label xv i -> hsep ["Label", pretty xv, pretty i]
-
-instance
-  ( Pretty (XMsg eta)
-  , Pretty (XLabel eta)
-  , Show r
-  )
-  => Show (MsgOrLabel eta r)
-  where
-  show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 infixr 5 :>
 
@@ -88,28 +51,6 @@ data Protocol eta r bst
   | Goto (XGoto eta) Int
   | Terminal (XTerminal eta)
   deriving (Functor)
-
-instance
-  ( ForallX Pretty eta
-  , Show r
-  , Show bst
-  )
-  => Pretty (Protocol eta r bst)
-  where
-  pretty = \case
-    msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
-    Branch is r ls -> nest 2 $ "[Branch]" <+> pretty is <+> pretty (show r) <> line <> vsep (fmap pretty ls)
-    Goto xv i -> "Goto" <+> pretty xv <+> pretty (show i)
-    Terminal xv -> "Terminal" <+> pretty xv
-
-instance
-  ( ForallX Pretty eta
-  , Show r
-  , Show bst
-  )
-  => Show (Protocol eta r bst)
-  where
-  show = renderString . layoutPretty defaultLayoutOptions . pretty
 
 -- | XTraverse
 type XTraverse m eta gama r bst =
@@ -187,7 +128,7 @@ data ProtocolError r bst
   | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
   | BranchNotNotifyAllOtherReceivers (Protocol Creat r bst)
 
-instance (Show r, Show bst, Pretty r) => Show (ProtocolError r bst) where
+instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
     AtLeastTwoBranches prot -> "At least two branches are required\n" <> show prot
     DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
@@ -226,3 +167,29 @@ type instance XGoto (GenConst r) = ([Int], Int)
 type instance XTerminal (GenConst r) = [Int]
 
 ------------------------
+
+instance (Pretty (Protocol eta r bst), Show bst) => Pretty (BranchSt eta r bst) where
+  pretty (BranchSt bst prot) = "* BranchSt" <+> pretty (show bst) <> line <> (pretty prot)
+
+instance (Show (XMsg eta), Show (XLabel eta), Show r) => Pretty (MsgOrLabel eta r) where
+  pretty = \case
+    Msg xv cst args from to ->
+      hsep ["Msg", angles (pretty $ show xv), pretty cst, pretty args, pretty (show from), pretty (show to)]
+    Label xv i -> hsep ["Label", pretty $ show xv, pretty i]
+
+instance (ForallX Show eta, Show r, Show bst) => Pretty (Protocol eta r bst) where
+  pretty = \case
+    msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
+    Branch is r ls -> nest 2 $ "[Branch]" <+> pretty (show is) <+> pretty (show r) <> line <> vsep (fmap pretty ls)
+    Goto xv i -> "Goto" <+> pretty (show xv) <+> pretty i
+    Terminal xv -> "Terminal" <+> pretty (show xv)
+
+-----------------------------
+instance (Pretty (Protocol eta r bst), Show bst) => Show (BranchSt eta r bst) where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
+
+instance (Show (XMsg eta), Show (XLabel eta), Show r) => Show (MsgOrLabel eta r) where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
+
+instance (ForallX Show eta, Show r, Show bst) => Show (Protocol eta r bst) where
+  show = renderString . layoutPretty defaultLayoutOptions . pretty
