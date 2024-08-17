@@ -2,10 +2,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoFieldSelectors #-}
 
 module TypedSession.State.Render where
 
@@ -51,14 +53,23 @@ runCenterFills ls =
   let ls' = L.sortOn getPoint ls
    in foldl' runCenterFill "" ls'
 
-width :: Int
-width = 30
+-- width :: Int
+-- width = 30
 
-leftWidth :: Int
-leftWidth = 20
+-- leftWidth :: Int
+-- leftWidth = 20
 
-reSt :: String -> String
-reSt st =
+data StrFillEnv = StrFillEnv
+  { width :: Int
+  , leftWidth :: Int
+  }
+  deriving (Show)
+
+defaultStrFilEnv :: StrFillEnv
+defaultStrFilEnv = StrFillEnv 30 20
+
+reSt :: StrFillEnv -> String -> String
+reSt StrFillEnv{width} st =
   let st' = words st
    in case st' of
         [] -> error "np"
@@ -87,11 +98,11 @@ renderXFold
      , Show r
      , Show bst
      )
-  => XStringFill eta r bst -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
+  => StrFillEnv -> XStringFill eta r bst -> XFold m eta r bst
+renderXFold sfe (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
   ( \(xv, (con, _, _, _, _)) -> do
       indentVal <- get @Int
-      let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
+      let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt sfe con)]
       tell [va ++ xmsg xv]
   , \(xv, i) -> tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
   , \(xv, (r, _)) -> do
@@ -113,8 +124,8 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
 runRender
   :: forall r eta bst
    . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
-  => XStringFill eta r bst -> Protocol eta r bst -> String
-runRender xst prot =
+  => StrFillEnv -> XStringFill eta r bst -> Protocol eta r bst -> String
+runRender sfe@(StrFillEnv{width, leftWidth}) xst prot =
   unlines
     . fmap runCenterFills
     . fst
@@ -125,7 +136,7 @@ runRender xst prot =
       let header =
             [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- rRange @r]
       tell [header]
-      (xfold (renderXFold xst) prot)
+      (xfold (renderXFold sfe xst) prot)
 
 data Tracer r bst
   = TracerProtocolCreat (Protocol Creat r bst)
@@ -159,27 +170,27 @@ foo from to str i =
           else "->" ++ str
     | otherwise -> str
 
-rtops :: (Enum r) => r -> Int
-rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
+rtops :: (Enum r) => StrFillEnv -> r -> Int
+rtops StrFillEnv{width, leftWidth} = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
 
 rRange :: forall r. (Enum r, Bounded r) => [r]
 rRange = [minBound @r .. maxBound]
 
-too :: forall r a. (Show a, Enum r, Bounded r) => [a] -> [StringFill]
-too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap rtops (rRange @r)]
+too :: forall r a. (Show a, Enum r, Bounded r) => StrFillEnv -> [a] -> [StringFill]
+too sfe xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap (rtops sfe) (rRange @r)]
 
-stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => XStringFill (MsgT r bst) r bst
-stMsgT =
+stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => StrFillEnv -> XStringFill (MsgT r bst) r bst
+stMsgT sfe =
   let
    in ( \(ls, (from, to)) ->
           [ CenterFill ps ' ' $ foo from to (show v) i
-          | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap rtops (rRange @r)) ls
+          | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
           ]
-      , \(xs, _) -> too @r xs
-      , \xs -> too @r xs
+      , \(xs, _) -> too @r sfe xs
+      , \xs -> too @r sfe xs
       , \_ -> []
-      , \(xs, _) -> too @r xs
-      , \xs -> too @r xs
+      , \(xs, _) -> too @r sfe xs
+      , \xs -> too @r sfe xs
       )
 
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
@@ -191,5 +202,5 @@ instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bs
     TracerSubMap p -> traceWrapper "SubMap" $ show p
     TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
     TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
-    TracerProtocolMsgT p -> traceWrapper "MsgT" $ runRender (stMsgT @r) p
+    TracerProtocolMsgT p -> traceWrapper "MsgT" $ show p
     TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p

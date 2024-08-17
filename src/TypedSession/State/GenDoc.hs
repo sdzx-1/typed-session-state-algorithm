@@ -128,19 +128,20 @@ genProtIns roleName protName PipleResult{msgT1} =
               ]
         ]
 
-genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => PipleResult r bst -> String
-genGraph PipleResult{msgT} = runRender stMsgT msgT
+genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => StrFillEnv -> PipleResult r bst -> String
+genGraph sfe PipleResult{msgT} = runRender sfe (stMsgT sfe) msgT
 
 genAllDoc'
   :: forall r bst ann
    . (Enum r, Bounded r, Ord r, Show r, Show bst)
-  => Protocol Creat r bst
+  => StrFillEnv
+  -> Protocol Creat r bst
   -> String -- role name
   -> String -- protocol name
   -> String -- bst name
   -> [String] -- module Name
   -> Either (ProtocolError r bst) (Doc ann)
-genAllDoc' prot rName pName bstName moduleNames = case piple prot of
+genAllDoc' sfe prot rName pName bstName moduleNames = case piple prot of
   Left e -> Left e
   Right pipResult1 ->
     Right $
@@ -158,7 +159,7 @@ genAllDoc' prot rName pName bstName moduleNames = case piple prot of
         , "import GHC.Int (Int (I#))"
         , "import TypedProtocol.Core"
         , "{-"
-        , pretty $ genGraph pipResult1
+        , pretty $ genGraph sfe pipResult1
         , "-}"
         , genRole @r rName
         , genSt pName bstName pipResult1
@@ -168,26 +169,28 @@ genAllDoc' prot rName pName bstName moduleNames = case piple prot of
 genAllDoc
   :: forall r bst
    . (Enum r, Bounded r, Ord r, Show r, Show bst)
-  => Protocol Creat r bst
+  => StrFillEnv
+  -> Protocol Creat r bst
   -> String -- role name
   -> String -- protocol name
   -> String -- bst name
   -> [String] -- module names
   -> Either (ProtocolError r bst) String
-genAllDoc a b c d e =
+genAllDoc sfe a b c d e =
   renderString . layoutPretty defaultLayoutOptions
-    <$> genAllDoc' a b c d e
+    <$> genAllDoc' sfe a b c d e
 
 genAllFile
   :: forall r bst
    . (Enum r, Bounded r, Ord r, Show r, Show bst)
-  => Protocol Creat r bst
+  => StrFillEnv
+  -> Protocol Creat r bst
   -> String -- role name
   -> String -- protocol name
   -> String -- bst name
   -> [String] -- module names
   -> IO ()
-genAllFile a b c d e = case genAllDoc a b c d e of
+genAllFile sfe a b c d e = case genAllDoc sfe a b c d e of
   Left er -> print er
   Right st -> do
     let name = case e of
