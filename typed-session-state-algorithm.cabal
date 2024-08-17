@@ -59,12 +59,9 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  Constraint
-                    , Type
-                    , Render
-                    , Piple
-                    , N
                     , N.N2
                     , N.N1
+                    , N.N3
                     , N.Type
                     , N.Utils
                     , N.Render
