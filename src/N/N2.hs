@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NoFieldSelectors #-}
 
 module N.N2 where
 
@@ -206,6 +207,13 @@ genMsgT1XTraverse =
   , \a -> pure a
   )
 
+data PipleResult r bst = PipleResult
+  { msgT :: Protocol (MsgT r bst) r bst
+  , msgT1 :: Protocol (MsgT1 r bst) r bst
+  , dnySet :: Set Int
+  , stBound :: (Int, Int)
+  }
+
 piple'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
@@ -216,11 +224,7 @@ piple'
      )
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
-  -> m
-      ( Protocol (MsgT r bst) r bst
-      , Protocol (MsgT1 r bst) r bst
-      , Set Int
-      )
+  -> m (PipleResult r bst)
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
   prot1 <-
@@ -236,7 +240,7 @@ piple' trace prot0 = do
       . runState @(IntMap [Int]) (IntMap.empty)
       $ xfold genConstrXFold prot2
   trace (TracerConstraints constraintList)
-  let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
+  let (sbm, stBound) = compressSubMap $ C.constrToSubMap $ toList constraintList
   trace (TracerSubMap sbm)
   prot3 <- xtraverse (replXTraverse sbm) prot2
   trace (TracerProtocolGenConstN prot3)
@@ -250,7 +254,7 @@ piple' trace prot0 = do
   trace (TracerProtocolMsgT prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4
   trace (TracerProtocolMsgT1 prot5)
-  pure (prot4, prot5, dnys)
+  pure (PipleResult prot4 prot5 dnys stBound)
 
 piple
   :: forall r bst
@@ -258,10 +262,7 @@ piple
   => Protocol Creat r bst
   -> Either
       (ProtocolError r bst)
-      ( Protocol (MsgT r bst) r bst
-      , Protocol (MsgT1 r bst) r bst
-      , Set Int
-      )
+      (PipleResult r bst)
 piple protocol =
   run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
 
@@ -272,10 +273,7 @@ pipleWithTracer
   -> ( Seq (Tracer r bst)
      , Either
         (ProtocolError r bst)
-        ( Protocol (MsgT r bst) r bst
-        , Protocol (MsgT1 r bst) r bst
-        , Set Int
-        )
+        (PipleResult r bst)
      )
 pipleWithTracer protocol =
   run
