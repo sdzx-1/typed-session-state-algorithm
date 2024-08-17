@@ -184,6 +184,14 @@ genMsgTXTraverse =
   , \ls -> pure $ fmap (const TEnd) ls
   )
 
+getFirstXV :: Protocol (MsgT r bst) r bst -> [T bst]
+getFirstXV = \case
+  Msg (xv, _) _ _ _ _ :> _ -> xv
+  Label (xv, _) _ :> _ -> xv
+  Branch xv _ _ -> xv
+  Goto (xv, _) _ -> xv
+  Terminal xv -> xv
+
 piple'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
