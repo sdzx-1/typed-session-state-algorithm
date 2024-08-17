@@ -7,9 +7,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module N.Render where
+module TypedSession.State.Render where
 
-import qualified Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.State.Strict (runState)
 import Control.Carrier.Writer.Strict (runWriter)
@@ -18,8 +17,9 @@ import Control.Effect.Writer
 import qualified Data.List as L
 import Data.Sequence (Seq)
 import Data.Set (Set)
-import N.Type
-import N.Utils
+import qualified TypedSession.State.Constraint as C
+import TypedSession.State.Type
+import TypedSession.State.Utils
 
 data StringFill
   = CenterFill Int Char String

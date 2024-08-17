@@ -14,13 +14,12 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module N.Type where
+module TypedSession.State.Type where
 
 import Control.Monad
 import Data.Kind (Constraint, Type)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
-import Prelude hiding (traverse)
 
 type family XMsg eta
 type family XLabel eta

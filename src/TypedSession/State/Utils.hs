@@ -14,9 +14,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module N.Utils where
+module TypedSession.State.Utils where
 
-import qualified Constraint as C
+import qualified TypedSession.State.Constraint as C
 import Control.Carrier.Fresh.Strict
 import Control.Carrier.State.Strict
 import Control.Effect.Writer
@@ -26,7 +26,7 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import N.Type
+import TypedSession.State.Type
 import Prelude hiding (traverse)
 
 ------------------------

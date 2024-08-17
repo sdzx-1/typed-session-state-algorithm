@@ -16,17 +16,15 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module N.N3 where
+module TypedSession.State.GenDoc where
 
-import Data.Either (fromRight)
 import qualified Data.List as L
 import qualified Data.Set as Set
-import N.N1
-import N.N2
-import N.Render
-import N.Type (Creat, Protocol, ProtocolError)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
+import TypedSession.State.Piple
+import TypedSession.State.Render
+import TypedSession.State.Type (Creat, Protocol, ProtocolError)
 
 genRole :: forall r ann. (Enum r, Bounded r, Show r) => String -> Doc ann
 genRole rname =
@@ -268,24 +266,24 @@ genAllFile a b c d e = case genAllDoc a b c d e of
 
 ---------------------------example---------------------------------------
 
-data Role = Client | Server | Counter
-  deriving (Show, Eq, Ord, Enum, Bounded)
+-- data Role = Client | Server | Counter
+--   deriving (Show, Eq, Ord, Enum, Bounded)
 
-v1 :: Protocol Creat Role Bool
-v1 =
-  Label 0
-    :> Branch
-      Client
-      [ BranchSt True $
-          Msg "Ping" ["Int", "Int", "Int"] Client Server
-            :> Msg "Pong" [] Server Client
-            :> Msg "AddOne" [] Client Counter
-            :> Goto 0
-      , BranchSt False $
-          Msg "Stop" [] Client Server
-            :> Msg "CStop" [] Client Counter
-            :> Terminal
-      ]
+-- v1 :: Protocol Creat Role Bool
+-- v1 =
+--   Label 0
+--     :> Branch
+--       Client
+--       [ BranchSt True $
+--           Msg "Ping" ["Int", "Int", "Int"] Client Server
+--             :> Msg "Pong" [] Server Client
+--             :> Msg "AddOne" [] Client Counter
+--             :> Goto 0
+--       , BranchSt False $
+--           Msg "Stop" [] Client Server
+--             :> Msg "CStop" [] Client Counter
+--             :> Terminal
+--       ]
 
 --- >>>  genAllFile v1 "Role" "PingPong" "Bool" ["PingPong","Type"]
 

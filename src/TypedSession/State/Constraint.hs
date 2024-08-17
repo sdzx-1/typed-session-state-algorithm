@@ -1,4 +1,4 @@
-module Constraint where
+module TypedSession.State.Constraint where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as I

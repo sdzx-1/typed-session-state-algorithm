@@ -1,9 +1,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-module N.N1 where
+module TypedSession.State.Pattern where
 
-import N.Type (Creat, Protocol)
-import qualified N.Type as N
+import TypedSession.State.Type (Creat, Protocol)
+import qualified TypedSession.State.Type as N
 
 pattern Msg :: String -> [String] -> r -> r -> N.MsgOrLabel Creat r
 pattern Msg a b c d = N.Msg () a b c d

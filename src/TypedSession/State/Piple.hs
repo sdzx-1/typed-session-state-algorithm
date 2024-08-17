@@ -16,9 +16,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module N.N2 where
+module TypedSession.State.Piple where
 
-import qualified Constraint as C
+import qualified TypedSession.State.Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
@@ -37,10 +37,10 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
-import N.Render
-import N.Type
-import N.Utils
 import Prettyprinter
+import TypedSession.State.Render
+import TypedSession.State.Type
+import TypedSession.State.Utils
 
 ------------------------
 addNumsXTraverse
