@@ -196,6 +196,15 @@ type instance XBranchSt (MsgT r bst) = ()
 type instance XGoto (MsgT r bst) = ([T bst], Int)
 type instance XTerminal (MsgT r bst) = [T bst]
 
+data MsgT1 r bst
+
+type instance XMsg (MsgT1 r bst) = ((T bst, T bst, T bst), (r, r))
+type instance XLabel (MsgT1 r bst) = ([T bst], Int)
+type instance XBranch (MsgT1 r bst) = [T bst]
+type instance XBranchSt (MsgT1 r bst) = ()
+type instance XGoto (MsgT1 r bst) = ([T bst], Int)
+type instance XTerminal (MsgT1 r bst) = [T bst]
+
 ------------------------
 
 instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Pretty (BranchSt eta r bst) where

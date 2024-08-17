@@ -192,6 +192,20 @@ getFirstXV = \case
   Goto (xv, _) _ -> xv
   Terminal xv -> xv
 
+genMsgT1XTraverse :: (Monad m, Enum r) => XTraverse m (MsgT r bst) (MsgT1 r bst) r bst
+genMsgT1XTraverse =
+  ( \((is, (from, to)), (_, _, _, _, prot)) -> do
+      let os = getFirstXV prot
+          from' = fromEnum from
+          to' = fromEnum to
+      pure ((is !! from', os !! from', os !! to'), (from, to))
+  , \(a, _) -> pure a
+  , \(a, _) -> pure (a, id)
+  , \(a, _) -> pure a
+  , \(a, _) -> pure a
+  , \a -> pure a
+  )
+
 piple'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
@@ -202,7 +216,11 @@ piple'
      )
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
-  -> m (Protocol (MsgT r bst) r bst)
+  -> m
+      ( Protocol (MsgT r bst) r bst
+      , Protocol (MsgT1 r bst) r bst
+      , Set Int
+      )
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
   prot1 <-
@@ -230,13 +248,20 @@ piple' trace prot0 = do
       . runState @bst undefined
       $ (xtraverse genMsgTXTraverse prot3)
   trace (TracerProtocolMsgT prot4)
-  pure prot4
+  prot5 <- xtraverse genMsgT1XTraverse prot4
+  trace (TracerProtocolMsgT1 prot5)
+  pure (prot4, prot5, dnys)
 
 piple
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol (MsgT r bst) r bst)
+  -> Either
+      (ProtocolError r bst)
+      ( Protocol (MsgT r bst) r bst
+      , Protocol (MsgT1 r bst) r bst
+      , Set Int
+      )
 piple protocol =
   run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
 
@@ -244,7 +269,14 @@ pipleWithTracer
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> (Seq (Tracer r bst), Either (ProtocolError r bst) (Protocol (MsgT r bst) r bst))
+  -> ( Seq (Tracer r bst)
+     , Either
+        (ProtocolError r bst)
+        ( Protocol (MsgT r bst) r bst
+        , Protocol (MsgT1 r bst) r bst
+        , Set Int
+        )
+     )
 pipleWithTracer protocol =
   run
     . runWriter @(Seq (Tracer r bst))
