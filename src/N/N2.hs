@@ -40,6 +40,7 @@ import qualified Data.Set as Set
 import N.Render
 import N.Type
 import N.Utils
+import Prettyprinter
 
 ------------------------
 addNumsXTraverse
@@ -280,3 +281,37 @@ pipleWithTracer protocol =
     . runWriter @(Seq (Tracer r bst))
     . runError @(ProtocolError r bst)
     $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
+
+genMsgDocXFold
+  :: forall r bst ann sig m
+   . ( Has (Writer [Doc ann]) sig m
+     , Show r
+     , Show bst
+     )
+  => String -> String -> XFold m (MsgT1 r bst) r bst
+genMsgDocXFold rName protName =
+  ( \( ((sendStart, sendEnd, recEnd), (from, to))
+      , (cons, args, _, _, _)
+      ) -> do
+        tell @[Doc ann]
+          [ pretty cons
+              <+> "::"
+              <+> pretty (L.intercalate "->" args)
+              <+> (if null args then emptyDoc else "->")
+              <+> "Msg"
+              <+> pretty rName
+              <+> pretty (protName <> "St")
+              <+> parens (pretty $ show sendStart)
+              <+> (pretty $ '\'' : show (from, sendEnd))
+              <+> (pretty $ '\'' : show (to, recEnd))
+          ]
+  , \_ -> pure ()
+  , \_ -> pure (id)
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
+genMsg :: forall r bst ann. (Show r, Show bst) => String -> String -> Protocol (MsgT1 r bst) r bst -> [Doc ann]
+genMsg rName protName prot =
+  fst $ run $ runWriter @[Doc ann] (xfold (genMsgDocXFold @r @bst @ann rName protName) prot)
