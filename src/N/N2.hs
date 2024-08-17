@@ -282,14 +282,14 @@ pipleWithTracer protocol =
     . runError @(ProtocolError r bst)
     $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
 
-genMsgDocXFold
+genDocXFold
   :: forall r bst ann sig m
    . ( Has (Writer [Doc ann]) sig m
      , Show r
      , Show bst
      )
   => String -> String -> XFold m (MsgT1 r bst) r bst
-genMsgDocXFold rName protName =
+genDocXFold rName protName =
   ( \( ((sendStart, sendEnd, recEnd), (from, to))
       , (cons, args, _, _, _)
       ) -> do
@@ -312,6 +312,6 @@ genMsgDocXFold rName protName =
   , \_ -> pure ()
   )
 
-genMsg :: forall r bst ann. (Show r, Show bst) => String -> String -> Protocol (MsgT1 r bst) r bst -> [Doc ann]
-genMsg rName protName prot =
-  fst $ run $ runWriter @[Doc ann] (xfold (genMsgDocXFold @r @bst @ann rName protName) prot)
+genDoc :: forall r bst ann. (Show r, Show bst) => String -> String -> Protocol (MsgT1 r bst) r bst -> [Doc ann]
+genDoc rName protName prot =
+  fst $ run $ runWriter @[Doc ann] (xfold (genDocXFold @r @bst @ann rName protName) prot)
