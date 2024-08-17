@@ -151,7 +151,7 @@ genT
   :: forall bst sig m
    . (Has (Reader (Set Int) :+: State bst) sig m)
   => (bst -> Int -> T bst) -> Int -> m (T bst)
-genT foo i = do
+genT fun i = do
   dynSet <- ask @(Set Int)
   if i == -1
     then pure (TEnd)
@@ -159,7 +159,7 @@ genT foo i = do
       if Set.member i dynSet
         then do
           bst <- get
-          pure (foo bst i)
+          pure (fun bst i)
         else pure $ TNum i
 
 genMsgTXTraverse
@@ -194,7 +194,7 @@ piple'
      )
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
-  -> m (Protocol (GenConst r) r bst)
+  -> m (Protocol (MsgT r bst) r bst)
 piple' trace prot0 = do
   trace (TraceProtocolCreat prot0)
   prot1 <-
@@ -222,13 +222,13 @@ piple' trace prot0 = do
       . runState @bst undefined
       $ (xtraverse genMsgTXTraverse prot3)
   trace (TraceProtocolMsgT prot4)
-  pure prot3
+  pure prot4
 
 piple
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> Either (ProtocolError r bst) (Protocol (GenConst r) r bst)
+  -> Either (ProtocolError r bst) (Protocol (MsgT r bst) r bst)
 piple protocol =
   run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
 
@@ -236,7 +236,7 @@ pipleWithTracer
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
-  -> (Seq (Tracer r bst), Either (ProtocolError r bst) (Protocol (GenConst r) r bst))
+  -> (Seq (Tracer r bst), Either (ProtocolError r bst) (Protocol (MsgT r bst) r bst))
 pipleWithTracer protocol =
   run
     . runWriter @(Seq (Tracer r bst))
