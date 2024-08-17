@@ -10,7 +10,7 @@
 module N.Render where
 
 import qualified Constraint as C
-import Control.Algebra (Has, (:+:))
+import Control.Algebra ((:+:))
 import Control.Carrier.State.Strict (runState)
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.State
