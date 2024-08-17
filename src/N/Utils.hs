@@ -59,7 +59,7 @@ getAllMsgInfo = \case
 tellSeq :: (Has (Writer (Seq a)) sig m) => [a] -> m ()
 tellSeq ls = tell (Seq.fromList ls)
 
-compressSubMap :: C.SubMap -> C.SubMap
+compressSubMap :: C.SubMap -> (C.SubMap, (Int, Int))
 compressSubMap sbm' =
   let (minKey, maxKey) = (fst $ IntMap.findMin sbm', fst $ IntMap.findMax sbm')
       list = [minKey .. maxKey]
@@ -67,7 +67,7 @@ compressSubMap sbm' =
       minVal = minimum vals
       tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [minVal, minVal + 1 ..]
       vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
-   in IntMap.fromList $ zip keys vals'
+   in (IntMap.fromList $ zip keys vals', (minimum vals', maximum vals'))
 
 replaceList :: C.SubMap -> [Int] -> [Int]
 replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
