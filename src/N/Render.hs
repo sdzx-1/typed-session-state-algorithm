@@ -110,11 +110,11 @@ renderXFold (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
       tell [[LeftAlign (indentVal * 2 + 3) ' ' "~ Terminal"] ++ xterminal xv]
   )
 
-getSF
+runRender
   :: forall r eta bst
    . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
   => XStringFill eta r bst -> Protocol eta r bst -> String
-getSF xst prot =
+runRender xst prot =
   unlines
     . fmap runCenterFills
     . fst
@@ -136,6 +136,7 @@ data Tracer r bst
   | TracerProtocolGenConstN (Protocol (GenConst r) r bst)
   | TracerCollectBranchDynVal (Set Int)
   | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
+  | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -144,29 +145,6 @@ traceWrapper desc st =
     ++ "-----------------\n"
     ++ st
     ++ "\n"
-
-stCreat :: XStringFill Creat r bst
-stCreat =
-  ( \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  )
-
-stAddNums :: forall r bst. (Enum r, Bounded r) => XStringFill AddNums r bst
-stAddNums =
-  ( \(xs, ys) ->
-      [ CenterFill i ' ' $ show v
-      | (i, v) <- zip (fmap rtops (rRange @r)) (zip xs ys)
-      ]
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  )
 
 foo :: (Ord a) => a -> a -> [Char] -> a -> [Char]
 foo from to str i =
@@ -180,19 +158,6 @@ foo from to str i =
           then str ++ "<-"
           else "->" ++ str
     | otherwise -> str
-
-stGenConst :: forall r bst. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r bst
-stGenConst =
-  ( \((xs, ys), (from, to)) ->
-      [ CenterFill ps ' ' $ foo from to (show v) i
-      | (i, (ps, v)) <- zip (rRange @r) (zip (fmap rtops (rRange @r)) (zip xs ys))
-      ]
-  , \(xs, _) -> too @r xs
-  , \xs -> too @r xs
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  )
 
 rtops :: (Enum r) => r -> Int
 rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
@@ -219,11 +184,12 @@ stMsgT =
 
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
   show = \case
-    TracerProtocolCreat p -> traceWrapper "Creat" $ getSF stCreat p
-    TracerProtocolAddNum p -> traceWrapper "AddNum" $ getSF (stAddNums @r) p
-    TracerProtocolGenConst p -> traceWrapper "GenConst" $ getSF (stGenConst @r) p
+    TracerProtocolCreat p -> traceWrapper "Creat" $ show p
+    TracerProtocolAddNum p -> traceWrapper "AddNum" $ show p
+    TracerProtocolGenConst p -> traceWrapper "GenConst" $ show p
     TracerConstraints p -> traceWrapper "Constrains" $ show p
     TracerSubMap p -> traceWrapper "SubMap" $ show p
-    TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ getSF (stGenConst @r) p
+    TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
     TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
-    TracerProtocolMsgT p -> traceWrapper "MsgT" $ getSF (stMsgT @r) p
+    TracerProtocolMsgT p -> traceWrapper "MsgT" $ runRender (stMsgT @r) p
+    TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p
