@@ -52,7 +52,7 @@ addNumsXTraverse
 addNumsXTraverse =
   ( \_ -> do
       i <- fresh
-      let tmp = [minBound @r .. maxBound]
+      let tmp = rRange @r
           sized = length tmp
           outNums = fmap (\x -> i * sized + fromEnum x) tmp
       inNums <- get
@@ -168,7 +168,7 @@ genMsgTXTraverse
   => XTraverse m (GenConst r) (MsgT r bst) r bst
 genMsgTXTraverse =
   ( \(((is, _), (from, to)), _) -> do
-      is' <- forM (zip [minBound @r .. maxBound] is) $
+      is' <- forM (zip rRange is) $
         \(key, i) -> genT @bst (\bst1 i1 -> if key == from then BstList i1 bst1 else TAny i1) i
       pure (is', (from, to))
   , \((ls, idx), _) -> do
@@ -208,7 +208,7 @@ piple' trace prot0 = do
   prot1 <-
     fmap (snd . snd)
       . runFresh 1
-      . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
+      . runState @[Int] (fmap fromEnum (rRange @r))
       $ xtraverse addNumsXTraverse prot0
   trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1

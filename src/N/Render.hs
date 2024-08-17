@@ -123,7 +123,7 @@ getSF xst prot =
     . runState @Int 0
     $ do
       let header =
-            [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- [minBound @r .. maxBound]]
+            [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- rRange @r]
       tell [header]
       (xfold (renderXFold xst) prot)
 
