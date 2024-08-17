@@ -36,9 +36,9 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
+import N.Render
 import N.Type
 import N.Utils
-import Render
 
 ------------------------
 addNumsXTraverse
@@ -196,32 +196,32 @@ piple'
   -> Protocol Creat r bst
   -> m (Protocol (MsgT r bst) r bst)
 piple' trace prot0 = do
-  trace (TraceProtocolCreat prot0)
+  trace (TracerProtocolCreat prot0)
   prot1 <-
     fmap (snd . snd)
       . runFresh 1
       . runState @[Int] (fmap fromEnum [minBound @r .. maxBound])
       $ xtraverse addNumsXTraverse prot0
-  trace (TraceProtocolAddNum prot1)
+  trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
-  trace (TraceProtocolGenConst prot2)
+  trace (TracerProtocolGenConst prot2)
   (constraintList, _) <-
     runWriter @(Seq C.Constraint)
       . runState @(IntMap [Int]) (IntMap.empty)
       $ xfold genConstrXFold prot2
-  trace (TraceConstraints constraintList)
+  trace (TracerConstraints constraintList)
   let sbm = compressSubMap $ C.constrToSubMap $ toList constraintList
-  trace (TraceSubMap sbm)
+  trace (TracerSubMap sbm)
   prot3 <- xtraverse (replXTraverse sbm) prot2
-  trace (TraceProtocolGenConstN prot3)
+  trace (TracerProtocolGenConstN prot3)
   dnys <- fst <$> runState @((Set Int)) (Set.empty) (xfold collectBranchDynValXFold prot3)
-  trace (TraceCollectBranchDynVal dnys)
+  trace (TracerCollectBranchDynVal dnys)
   prot4 <-
     fmap snd
       . runReader @(Set Int) dnys
       . runState @bst undefined
       $ (xtraverse genMsgTXTraverse prot3)
-  trace (TraceProtocolMsgT prot4)
+  trace (TracerProtocolMsgT prot4)
   pure prot4
 
 piple
@@ -242,160 +242,3 @@ pipleWithTracer protocol =
     . runWriter @(Seq (Tracer r bst))
     . runError @(ProtocolError r bst)
     $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
-
-type XStringFill eta r bst =
-  ( XMsg eta -> [StringFill]
-  , XLabel eta -> [StringFill]
-  , XBranch eta -> [StringFill]
-  , XBranchSt eta -> [StringFill]
-  , XGoto eta -> [StringFill]
-  , XTerminal eta -> [StringFill]
-  )
-
-renderXFold
-  :: forall r eta bst sig m
-   . ( Has (Writer [[StringFill]] :+: State Int) sig m
-     , ForallX Show eta
-     , Enum r
-     , Bounded r
-     , Show r
-     , Show bst
-     )
-  => XStringFill eta r bst -> XFold m eta r bst
-renderXFold (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
-  ( \(xv, (con, _, _, _, _)) -> do
-      indentVal <- get @Int
-      let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt con)]
-      tell [va ++ xmsg xv]
-  , \(xv, i) -> tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
-  , \(xv, (r, _)) -> do
-      indentVal <- get @Int
-      modify @Int (+ 1)
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
-      pure (restoreWrapper @Int)
-  , \(_, (bst, _)) -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("* BranchSt " ++ show bst)]]
-  , \(xv, i) -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("^ Goto " ++ show i)] ++ xgoto xv]
-  , \xv -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' "~ Terminal"] ++ xterminal xv]
-  )
-
-getSF
-  :: forall r eta bst
-   . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
-  => XStringFill eta r bst -> Protocol eta r bst -> String
-getSF xst prot =
-  unlines
-    . fmap runCenterFills
-    . fst
-    . run
-    . runWriter @[[StringFill]]
-    . runState @Int 0
-    $ do
-      let header =
-            [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- [minBound @r .. maxBound]]
-      tell [header]
-      (xfold (renderXFold xst) prot)
-
-data Tracer r bst
-  = TraceProtocolCreat (Protocol Creat r bst)
-  | TraceProtocolAddNum (Protocol AddNums r bst)
-  | TraceProtocolGenConst (Protocol (GenConst r) r bst)
-  | TraceConstraints (Seq C.Constraint)
-  | TraceSubMap C.SubMap
-  | TraceProtocolGenConstN (Protocol (GenConst r) r bst)
-  | TraceCollectBranchDynVal (Set Int)
-  | TraceProtocolMsgT (Protocol (MsgT r bst) r bst)
-
-traceWrapper :: String -> String -> String
-traceWrapper desc st =
-  "--------------------"
-    ++ desc
-    ++ "-----------------\n"
-    ++ st
-    ++ "\n"
-
-stCreat :: XStringFill Creat r bst
-stCreat =
-  ( \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  )
-
-stAddNums :: forall r bst. (Enum r, Bounded r) => XStringFill AddNums r bst
-stAddNums =
-  ( \(xs, ys) ->
-      let zs = zip xs ys
-          rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]
-          res = zip rg zs
-       in [CenterFill i ' ' $ show v | (i, v) <- res]
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  , \_ -> []
-  )
-
-foo :: (Ord a) => a -> a -> [Char] -> a -> [Char]
-foo from to str i =
-  if
-    | i == from ->
-        if from > to
-          then "<-" ++ str
-          else str ++ "->"
-    | i == to ->
-        if from > to
-          then str ++ "<-"
-          else "->" ++ str
-    | otherwise -> str
-
-stGenConst :: forall r bst. (Enum r, Bounded r, Eq r, Ord r) => XStringFill (GenConst r) r bst
-stGenConst =
-  let
-    too :: [Int] -> [StringFill]
-    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) [minBound @r .. maxBound]]
-   in
-    ( \((xs, ys), (from, to)) ->
-        let zs = zip xs ys
-            is = [minBound @r .. maxBound]
-            rg = fmap ((+ leftWidth) . (width *) . (+ 1) . fromEnum) is
-            res = zip rg zs
-         in [CenterFill ps ' ' $ foo from to (show v) i | (i, (ps, v)) <- zip is res]
-    , \(xs, _) -> too xs
-    , \xs -> too xs
-    , \_ -> []
-    , \_ -> []
-    , \_ -> []
-    )
-
-stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => XStringFill (MsgT r bst) r bst
-stMsgT =
-  let
-    rtops = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
-    too xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap rtops [minBound @r .. maxBound]]
-   in
-    ( \(ls, (from, to)) -> [CenterFill ps ' ' $ foo from to (show v) i | (i, (v, ps)) <- zip [minBound @r .. maxBound] $ zip ls $ fmap rtops [minBound @r .. maxBound]]
-    , \(xs, _) -> too xs
-    , \xs -> too xs
-    , \_ -> []
-    , \(xs, _) -> too xs
-    , \xs -> too xs
-    )
-
-instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
-  show = \case
-    TraceProtocolCreat p -> traceWrapper "Creat" $ getSF stCreat p
-    TraceProtocolAddNum p -> traceWrapper "AddNum" $ getSF (stAddNums @r) p
-    TraceProtocolGenConst p -> traceWrapper "GenConst" $ getSF (stGenConst @r) p
-    TraceConstraints p -> traceWrapper "Constrains" $ show p
-    TraceSubMap p -> traceWrapper "SubMap" $ show p
-    TraceProtocolGenConstN p -> traceWrapper "GenConstN" $ getSF (stGenConst @r) p
-    TraceCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
-    TraceProtocolMsgT p -> traceWrapper "MsgT" $ getSF (stMsgT @r) p
