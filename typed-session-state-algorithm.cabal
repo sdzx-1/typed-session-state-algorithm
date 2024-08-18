@@ -65,6 +65,7 @@ library
                     , TypedSession.State.Type
                     , TypedSession.State.Utils
                     , TypedSession.State.Render
+                    , TypedSession.State.Parser
 
     -- Modules included in this library but not exported.
     -- other-modules:
