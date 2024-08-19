@@ -76,9 +76,10 @@ library
     -- Other library packages from which modules are imported.
     build-depends:    base >=4.17.2.1
                     , containers
-                    , array
                     , fused-effects
                     , prettyprinter
+                    , megaparsec
+                    , parser-combinators
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -110,5 +111,6 @@ test-suite typed-session-state-algorithm-test
 
     -- Test dependencies.
     build-depends:
-        base >=4.17.2.1,
-        typed-session-state-algorithm
+        base >=4.17.2.1
+      , typed-session-state-algorithm
+      , raw-strings-qq
