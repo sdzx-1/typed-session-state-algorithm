@@ -73,7 +73,7 @@ addNumsXTraverse =
             -- The first message of each branch must have the same receiver and sender.
             case getFirstMsgInfo prot of
               Nothing -> throwError (BranchNoMsg prot)
-              Just (from, to) -> do
+              Just (from, _) -> do
                 when (from /= r) $
                   throwError (BranchFirstMsgMustHaveTheSameSender prot)
             -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
@@ -86,6 +86,9 @@ addNumsXTraverse =
           put outNums
           pure (inNums, restoreWrapper @[Int])
       , \_ -> do
+          i <- fresh
+          let outNums = newNums i
+          put outNums
           put @Int 0
       , const get
       , const get
@@ -103,16 +106,23 @@ toGenConstrXTraverse =
 
 genConstrXFold
   :: forall r bst sig m
-   . (Has (State (IntMap [Int]) :+: Writer (Seq C.Constraint) :+: Error (ProtocolError r bst)) sig m, Enum r)
+   . (Has (State (IntMap [Int]) :+: State [Int] :+: Writer (Seq C.Constraint) :+: Error (ProtocolError r bst)) sig m, Enum r)
   => XFold m (GenConst r) r bst
 genConstrXFold =
-  ( \(((is, os), (from, to), _), _) -> do
+  ( \(((is, os), (from, to), index), _) -> do
       let ifrom = fromEnum from
           ito = fromEnum to
           from' = is !! ifrom --- is
           to' = is !! ito ------- is
           deleteIndexFromTo ks =
             fmap snd $ filter (\(idx, _) -> idx /= ifrom && idx /= ito) $ zip [0 ..] ks
+          deleteIndexFrom ks =
+            fmap snd $ filter (\(idx, _) -> idx /= ifrom) $ zip [0 ..] ks
+
+      when (index == 0) $ do
+        branchSts <- get @[Int]
+        tellSeq $ map (uncurry C.Constraint) $ zip (deleteIndexFrom branchSts) (deleteIndexFrom is)
+
       tellSeq $
         C.Constraint from' to'
           : zipWith C.Constraint (deleteIndexFromTo is) (deleteIndexFromTo os)
@@ -120,7 +130,9 @@ genConstrXFold =
       gets (IntMap.lookup @[Int] i) >>= \case
         Just _ -> throwError @(ProtocolError r bst) (DefLabelMultTimes lb)
         Nothing -> modify (IntMap.insert i is)
-  , \_ -> pure id
+  , \(is, _) -> do
+      put is
+      pure (restoreWrapper @[Int])
   , \_ -> pure ()
   , \((xs, i), gt) -> do
       gets (IntMap.lookup i) >>= \case
@@ -179,8 +191,8 @@ genMsgTXTraverse =
   , \((ls, idx), _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', idx)
-  , \(ls, _) -> do
-      ls' <- mapM (genT (const TAny)) ls
+  , \(ls, (r, _)) -> do
+      ls' <- mapM (\(idx, v) -> genT (if idx == fromEnum r then const TNum else (const TAny)) v) (zip [0 ..] ls)
       pure (ls', restoreWrapper @bst)
   , \(_, (bst, _)) -> put bst
   , \((is, i), _) -> do
@@ -243,6 +255,7 @@ piple' trace prot0 = do
   (constraintList, _) <-
     runWriter @(Seq C.Constraint)
       . runState @(IntMap [Int]) (IntMap.empty)
+      . runState @[Int] undefined
       $ xfold genConstrXFold prot2
   trace (TracerConstraints constraintList)
   let (sbm, stBound) = compressSubMap $ C.constrToSubMap $ toList constraintList
