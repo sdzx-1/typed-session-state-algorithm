@@ -182,7 +182,7 @@ too sfe xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap (rtops sfe) 
 stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => StrFillEnv -> XStringFill (MsgT r bst) r bst
 stMsgT sfe =
   let
-   in ( \(ls, (from, to)) ->
+   in ( \(ls, (from, to), _) ->
           [ CenterFill ps ' ' $ foo from to (show v) i
           | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
           ]

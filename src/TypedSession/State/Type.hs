@@ -158,7 +158,7 @@ type instance XTerminal Creat = ()
 
 data AddNums
 
-type instance XMsg AddNums = ([Int], [Int])
+type instance XMsg AddNums = ([Int], [Int], Int)
 type instance XLabel AddNums = [Int]
 type instance XBranch AddNums = [Int]
 type instance XBranchSt AddNums = ()
@@ -167,7 +167,7 @@ type instance XTerminal AddNums = [Int]
 
 data GenConst r
 
-type instance XMsg (GenConst r) = (([Int], [Int]), (r, r))
+type instance XMsg (GenConst r) = (([Int], [Int]), (r, r), Int)
 type instance XLabel (GenConst r) = ([Int], Int)
 type instance XBranch (GenConst r) = [Int]
 type instance XBranchSt (GenConst r) = ()
@@ -188,7 +188,7 @@ instance (Show bst) => Show (T bst) where
 
 data MsgT r bst
 
-type instance XMsg (MsgT r bst) = ([T bst], (r, r))
+type instance XMsg (MsgT r bst) = ([T bst], (r, r), Int)
 type instance XLabel (MsgT r bst) = ([T bst], Int)
 type instance XBranch (MsgT r bst) = [T bst]
 type instance XBranchSt (MsgT r bst) = ()
@@ -197,7 +197,7 @@ type instance XTerminal (MsgT r bst) = [T bst]
 
 data MsgT1 r bst
 
-type instance XMsg (MsgT1 r bst) = ((T bst, T bst, T bst), (r, r))
+type instance XMsg (MsgT1 r bst) = ((T bst, T bst, T bst), (r, r), Int)
 type instance XLabel (MsgT1 r bst) = ([T bst], Int)
 type instance XBranch (MsgT1 r bst) = [T bst]
 type instance XBranchSt (MsgT1 r bst) = ()

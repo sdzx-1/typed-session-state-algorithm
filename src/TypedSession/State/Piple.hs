@@ -45,7 +45,7 @@ import TypedSession.State.Utils
 ------------------------
 addNumsXTraverse
   :: forall r bst sig m
-   . ( Has (Fresh :+: State [Int] :+: Error (ProtocolError r bst)) sig m
+   . ( Has (Fresh :+: State Int :+: State [Int] :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      , Ord r
@@ -59,9 +59,11 @@ addNumsXTraverse =
    in ( \_ -> do
           i <- fresh
           inNums <- get
+          idx <- get @Int
+          modify @Int (+ 1)
           let outNums = newNums i
           put outNums
-          pure (inNums, outNums)
+          pure (inNums, outNums, idx)
       , const get
       , \(_, (r, ls)) -> do
           let len = length ls
@@ -88,14 +90,15 @@ addNumsXTraverse =
           let outNums = newNums i
           put outNums
           pure (inNums, restoreWrapper @[Int])
-      , const (pure ())
+      , \_ -> do
+          put @Int 0
       , const get
       , const get
       )
 
 toGenConstrXTraverse :: (Monad m) => XTraverse m AddNums (GenConst r) r bst
 toGenConstrXTraverse =
-  ( \(xv, (_, _, from, to, _)) -> pure (xv, (from, to))
+  ( \((a, b, i), (_, _, from, to, _)) -> pure ((a, b), (from, to), i)
   , \(is, (i, _)) -> pure (is, i)
   , \(xv, _) -> pure (xv, id)
   , \_ -> pure ()
@@ -108,7 +111,7 @@ genConstrXFold
    . (Has (State (IntMap [Int]) :+: Writer (Seq C.Constraint) :+: Error (ProtocolError r bst)) sig m, Enum r)
   => XFold m (GenConst r) r bst
 genConstrXFold =
-  ( \(((is, os), (from, to)), _) -> do
+  ( \(((is, os), (from, to), _), _) -> do
       let ifrom = fromEnum from
           ito = fromEnum to
           from' = is !! ifrom --- is
@@ -133,8 +136,8 @@ genConstrXFold =
 
 replXTraverse :: (Monad m) => C.SubMap -> XTraverse m (GenConst r) (GenConst r) r bst
 replXTraverse sbm =
-  ( \(((a, b), (from, to)), _) ->
-      pure ((replaceList sbm a, replaceList sbm b), (from, to))
+  ( \(((a, b), (from, to), i), _) ->
+      pure ((replaceList sbm a, replaceList sbm b), (from, to), i)
   , \((xs, i), _) -> pure (replaceList sbm xs, i)
   , \(a, _) -> pure (replaceList sbm a, id)
   , \_ -> pure ()
@@ -174,10 +177,10 @@ genMsgTXTraverse
    . (Has (Reader (Set Int) :+: State bst) sig m, Enum r, Eq r, Bounded r)
   => XTraverse m (GenConst r) (MsgT r bst) r bst
 genMsgTXTraverse =
-  ( \(((is, _), (from, to)), _) -> do
+  ( \(((is, _), (from, to), vi), _) -> do
       is' <- forM (zip rRange is) $
         \(key, i) -> genT @bst (\bst1 i1 -> if key == from then BstList i1 bst1 else TAny i1) i
-      pure (is', (from, to))
+      pure (is', (from, to), vi)
   , \((ls, idx), _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', idx)
@@ -193,7 +196,7 @@ genMsgTXTraverse =
 
 getFirstXV :: Protocol (MsgT r bst) r bst -> [T bst]
 getFirstXV = \case
-  Msg (xv, _) _ _ _ _ :> _ -> xv
+  Msg (xv, _, _) _ _ _ _ :> _ -> xv
   Label (xv, _) _ :> _ -> xv
   Branch xv _ _ -> xv
   Goto (xv, _) _ -> xv
@@ -201,11 +204,11 @@ getFirstXV = \case
 
 genMsgT1XTraverse :: (Monad m, Enum r) => XTraverse m (MsgT r bst) (MsgT1 r bst) r bst
 genMsgT1XTraverse =
-  ( \((is, (from, to)), (_, _, _, _, prot)) -> do
+  ( \((is, (from, to), i), (_, _, _, _, prot)) -> do
       let os = getFirstXV prot
           from' = fromEnum from
           to' = fromEnum to
-      pure ((is !! from', os !! from', os !! to'), (from, to))
+      pure ((is !! from', os !! from', os !! to'), (from, to), i)
   , \(a, _) -> pure a
   , \(a, _) -> pure (a, id)
   , \(a, _) -> pure a
@@ -234,8 +237,9 @@ piple'
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
   prot1 <-
-    fmap (snd . snd)
+    fmap (snd . snd . snd)
       . runFresh 1
+      . runState @Int 100
       . runState @[Int] (fmap fromEnum (rRange @r))
       $ xtraverse addNumsXTraverse prot0
   trace (TracerProtocolAddNum prot1)
@@ -295,7 +299,7 @@ genDocXFold
      )
   => String -> String -> XFold m (MsgT1 r bst) r bst
 genDocXFold rName protName =
-  ( \( ((sendStart, sendEnd, recEnd), (from, to))
+  ( \( ((sendStart, sendEnd, recEnd), (from, to), _)
       , (cons, args, _, _, _)
       ) -> do
         tell @[Doc ann]
