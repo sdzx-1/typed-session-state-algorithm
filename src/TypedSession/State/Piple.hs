@@ -152,12 +152,13 @@ replXTraverse sbm =
   , \xs -> pure (replaceList sbm xs)
   )
 
-collectBranchDynValXFold :: (Has (State (Set Int)) sig m) => XFold m (GenConst r) r bst
+collectBranchDynValXFold :: (Has (State (Set Int)) sig m, Enum r) => XFold m (GenConst r) r bst
 collectBranchDynValXFold =
   ( \_ -> pure ()
   , \_ -> pure ()
-  , \(ls, _) -> do
-      modify (`Set.union` (Set.fromList ls))
+  , \(ls, (r, _)) -> do
+      let ls' = map snd $ filter (\(i, _) -> i /= fromEnum r) $ zip [0 ..] ls
+      modify (`Set.union` (Set.fromList ls'))
       pure id
   , \_ -> pure ()
   , \_ -> pure ()
