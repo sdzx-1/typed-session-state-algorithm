@@ -108,14 +108,14 @@ renderXFold sfe (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
   , \(xv, (r, _)) -> do
       indentVal <- get @Int
       modify @Int (+ 1)
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch] " ++ show r)] ++ xbranch xv]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch " ++ show r ++ "]")] ++ xbranch xv]
       pure (restoreWrapper @Int)
   , \(_, (bst, _)) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("* BranchSt " ++ show bst)]]
   , \(xv, i) -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("^ Goto " ++ show i)] ++ xgoto xv]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("Goto " ++ show i)] ++ xgoto xv]
   , \xv -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' "~ Terminal"] ++ xterminal xv]
@@ -182,8 +182,8 @@ too sfe xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap (rtops sfe) 
 stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => StrFillEnv -> XStringFill (MsgT r bst) r bst
 stMsgT sfe =
   let
-   in ( \(ls, (from, to), _) ->
-          [ CenterFill ps ' ' $ foo from to (show v) i
+   in ( \(ls, (from, to), idx) ->
+          [ CenterFill ps ' ' $ foo from to ((if (i, idx) == (from, 0) then parensWarapper else id) $ show v) i
           | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
           ]
       , \(xs, _) -> too @r sfe xs
@@ -192,6 +192,9 @@ stMsgT sfe =
       , \(xs, _) -> too @r sfe xs
       , \xs -> too @r sfe xs
       )
+
+parensWarapper :: String -> String
+parensWarapper st = "{" <> st <> "}"
 
 instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
   show = \case
