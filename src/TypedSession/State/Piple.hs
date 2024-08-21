@@ -80,11 +80,8 @@ addNumsXTraverse =
             let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
             when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
           -- create output
-          i <- fresh
           inNums <- get
-          let outNums = newNums i
-          put outNums
-          pure (inNums, restoreWrapper @[Int])
+          pure (inNums, id)
       , \_ -> do
           i <- fresh
           let outNums = newNums i
@@ -93,6 +90,37 @@ addNumsXTraverse =
       , const get
       , const get
       )
+
+collentBranchVals :: (Has (State (Set Int)) sig m) => XFold m AddNums r bst
+collentBranchVals =
+  ( \_ -> pure ()
+  , \_ -> pure ()
+  , \(xs, _) -> do
+      modify (Set.union (Set.fromList xs))
+      pure id
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
+{- | The goal here is to make Branch's [Int] as small as possible,
+so that it will be more advantageous when the protocol changes.
+-}
+mkBranchSubMap :: forall r. (Enum r, Bounded r) => [Int] -> C.SubMap
+mkBranchSubMap ls =
+  let l1 = [fromEnum (maxBound @r) + 1 ..]
+   in IntMap.fromList $ (zip ls l1 ++ zip l1 ls)
+
+replBranchValXTraverse :: (Monad m) => C.SubMap -> XTraverse m AddNums AddNums r bst
+replBranchValXTraverse sbm =
+  ( \((as, bs, i), _) ->
+      pure (replaceList sbm as, replaceList sbm bs, i)
+  , \(xs, _) -> pure (replaceList sbm xs)
+  , \(a, _) -> pure (replaceList sbm a, id)
+  , \_ -> pure ()
+  , \(xs, _) -> pure (replaceList sbm xs)
+  , \xs -> pure (replaceList sbm xs)
+  )
 
 toGenConstrXTraverse :: (Monad m) => XTraverse m AddNums (GenConst r) r bst
 toGenConstrXTraverse =
@@ -244,13 +272,18 @@ piple'
   -> m (PipleResult r bst)
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
-  prot1 <-
+  prot1' <-
     fmap (snd . snd . snd)
       . runFresh 1
       . runState @Int 100
       . runState @[Int] (fmap fromEnum (rRange @r))
       $ xtraverse addNumsXTraverse prot0
-  trace (TracerProtocolAddNum prot1)
+  trace (TracerProtocolAddNum prot1')
+  branchVals <- fst <$> runState @(Set Int) (Set.empty) (xfold collentBranchVals prot1')
+  let branchSubMap = mkBranchSubMap @r (Set.toList branchVals)
+  trace (TracerBranchVals branchVals)
+  prot1 <- xtraverse (replBranchValXTraverse branchSubMap) prot1'
+  trace (TracerProtocolAddNumN prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
   trace (TracerProtocolGenConst prot2)
   (constraintList, _) <-

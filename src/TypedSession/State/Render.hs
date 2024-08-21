@@ -141,6 +141,8 @@ runRender sfe@(StrFillEnv{width, leftWidth}) xst prot =
 data Tracer r bst
   = TracerProtocolCreat (Protocol Creat r bst)
   | TracerProtocolAddNum (Protocol AddNums r bst)
+  | TracerProtocolAddNumN (Protocol AddNums r bst)
+  | TracerBranchVals (Set Int)
   | TracerProtocolGenConst (Protocol (GenConst r) r bst)
   | TracerConstraints (Seq C.Constraint)
   | TracerSubMap C.SubMap
@@ -200,6 +202,8 @@ instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bs
   show = \case
     TracerProtocolCreat p -> traceWrapper "Creat" $ show p
     TracerProtocolAddNum p -> traceWrapper "AddNum" $ show p
+    TracerProtocolAddNumN p -> traceWrapper "AddNumN" $ show p
+    TracerBranchVals set -> traceWrapper "CollectBranchVals" $ show set
     TracerProtocolGenConst p -> traceWrapper "GenConst" $ show p
     TracerConstraints p -> traceWrapper "Constrains" $ show p
     TracerSubMap p -> traceWrapper "SubMap" $ show p
