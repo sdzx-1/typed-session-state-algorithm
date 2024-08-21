@@ -76,11 +76,6 @@ addNumsXTraverse =
               Just (from, to) -> do
                 when (from /= r) $
                   throwError (BranchFirstMsgMustHaveTheSameSender prot)
-                get @(Maybe r) >>= \case
-                  Nothing -> put (Just to)
-                  Just to' ->
-                    when (to /= to') $
-                      throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
             -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
             let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
             when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))

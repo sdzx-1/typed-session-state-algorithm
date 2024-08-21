@@ -129,7 +129,6 @@ data ProtocolError r bst
   | DefLabelMultTimes Int
   | LabelUndefined Int
   | BranchNoMsg (Protocol Creat r bst)
-  | BranchFirstMsgMustHaveTheSameReceiver (Protocol Creat r bst)
   | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
   | BranchNotNotifyAllOtherReceivers (Protocol Creat r bst)
 
@@ -139,8 +138,6 @@ instance (Show r, Show bst) => Show (ProtocolError r bst) where
     DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
     LabelUndefined prot -> "Label Undefined\n" <> show prot
     BranchNoMsg prot -> "Branch No Msg\n" <> show prot
-    BranchFirstMsgMustHaveTheSameReceiver port ->
-      "The first message of each branch must have the same receiver.\n" <> show port
     BranchFirstMsgMustHaveTheSameSender prot ->
       "The first message of each branch must have the same sender.\n" <> show prot
     BranchNotNotifyAllOtherReceivers prot ->
