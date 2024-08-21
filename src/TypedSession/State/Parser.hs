@@ -162,7 +162,9 @@ runProtocolParser
    . (Enum r, Enum bst, Bounded r, Bounded bst, Show r, Show bst)
   => String
   -> Either
-      (ParseErrorBundle String ParserError)
+      String
       (Protocol Creat r bst)
-runProtocolParser =
-  runParser (between spaceConsumer eof $ parseProtocol @r @bst) ""
+runProtocolParser st =
+  case runParser (between spaceConsumer eof $ parseProtocol @r @bst) "" st of
+    Left e -> Left $ errorBundlePretty @String @ParserError e
+    Right a -> Right a
