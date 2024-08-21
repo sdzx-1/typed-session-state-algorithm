@@ -18,7 +18,6 @@
 
 module TypedSession.State.Piple where
 
-import qualified TypedSession.State.Constraint as C
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
 import Control.Carrier.Fresh.Strict
@@ -38,6 +37,7 @@ import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Prettyprinter
+import qualified TypedSession.State.Constraint as C
 import TypedSession.State.Render
 import TypedSession.State.Type
 import TypedSession.State.Utils
@@ -52,41 +52,46 @@ addNumsXTraverse
      )
   => XTraverse m Creat AddNums r bst
 addNumsXTraverse =
-  ( \_ -> do
-      i <- fresh
-      let tmp = rRange @r
-          sized = length tmp
-          outNums = fmap (\x -> i * sized + fromEnum x) tmp
-      inNums <- get
-      put outNums
-      pure (inNums, outNums)
-  , const get
-  , \(_, (r, ls)) -> do
-      let len = length ls
-      -- At least two branches.
-      when (len < 2) (throwError (AtLeastTwoBranches (Branch () r ls)))
-      void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
-        -- The first message of each branch must have the same receiver and sender.
-        case getFirstMsgInfo prot of
-          Nothing -> throwError (BranchNoMsg prot)
-          Just (from, to) -> do
-            when (from /= r) $
-              throwError (BranchFirstMsgMustHaveTheSameSender prot)
-            get @(Maybe r) >>= \case
-              Nothing -> put (Just to)
-              Just to' ->
-                when (to /= to') $
-                  throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
-        -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
-        let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
-        when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
-      -- create output
-      inNums <- get
-      pure (inNums, restoreWrapper @[Int])
-  , const (pure ())
-  , const get
-  , const get
-  )
+  let newNums i =
+        let tmp = rRange @r
+            sized = fromEnum (maxBound @r) + 1
+         in fmap (\x -> i * sized + fromEnum x) tmp
+   in ( \_ -> do
+          i <- fresh
+          inNums <- get
+          let outNums = newNums i
+          put outNums
+          pure (inNums, outNums)
+      , const get
+      , \(_, (r, ls)) -> do
+          let len = length ls
+          -- At least two branches.
+          when (len < 2) (throwError (AtLeastTwoBranches (Branch () r ls)))
+          void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
+            -- The first message of each branch must have the same receiver and sender.
+            case getFirstMsgInfo prot of
+              Nothing -> throwError (BranchNoMsg prot)
+              Just (from, to) -> do
+                when (from /= r) $
+                  throwError (BranchFirstMsgMustHaveTheSameSender prot)
+                get @(Maybe r) >>= \case
+                  Nothing -> put (Just to)
+                  Just to' ->
+                    when (to /= to') $
+                      throwError (BranchFirstMsgMustHaveTheSameReceiver prot)
+            -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
+            let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
+            when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
+          -- create output
+          i <- fresh
+          inNums <- get
+          let outNums = newNums i
+          put outNums
+          pure (inNums, restoreWrapper @[Int])
+      , const (pure ())
+      , const get
+      , const get
+      )
 
 toGenConstrXTraverse :: (Monad m) => XTraverse m AddNums (GenConst r) r bst
 toGenConstrXTraverse =
