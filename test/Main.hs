@@ -188,7 +188,6 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 -- -------------------------------------Buyer---------------Seller--------------Buyer2
 -- LABEL 0                                S0                  S0                 S1 s
 --   Title                               S0->                ->S0                S1 s
--- LABEL 1                               S2 s                 S3                 S1 s
 --   [Branch Seller]                     S2 s                 S3                 S1 s
 --     * BranchSt NotFound
 --     NoBook                           S2 s<-         <-{S2 NotFound}           S1 s
