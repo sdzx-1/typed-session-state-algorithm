@@ -21,22 +21,6 @@ data PingPongRole = Client | Server | Counter
 data PingPongBranchSt = STrue | SFalse
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
-v1 :: Protocol Creat PingPongRole PingPongBranchSt
-v1 =
-  Label 0
-    :> Branch
-      Client
-      [ BranchSt STrue $
-          Msg "Ping" ["Int", "Int", "Int"] Client Server
-            :> Msg "Pong" [] Server Client
-            :> Msg "AddOne" [] Client Counter
-            :> Goto 0
-      , BranchSt SFalse $
-          Msg "Stop" [] Client Server
-            :> Msg "CStop" [] Client Counter
-            :> Terminal
-      ]
-
 s1 =
   [r|
   
@@ -56,12 +40,109 @@ s1 =
 r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
   Left e -> e
   Right a ->
-    let res = piple a
+    let (lq, res) = pipleWithTracer a
      in case res of
           Left e -> show e
-          Right ppResult -> genGraph (StrFillEnv 20 20) ppResult
+          Right ppResult -> show lq <> "\n" <> genGraph (StrFillEnv 20 20) ppResult
 
 -- >>> error r1
+-- fromList [--------------------Creat-----------------
+-- Label () 0
+-- [Branch] () Client
+--   * BranchSt () STrue
+--   Msg <()> AddOne [] Client Counter
+--   Msg <()> Ping [Int, Int, Int] Client Server
+--   Msg <()> Pong [] Server Client
+--   Goto () 0
+--   * BranchSt () SFalse
+--   Msg <()> Stop [] Client Server
+--   Msg <()> CStop [] Client Counter
+--   Terminal ()
+-- ,--------------------AddNum-----------------
+-- Label [0,1,2] 0
+-- [Branch] [0,1,2] Client
+--   * BranchSt () STrue
+--   Msg <([3,4,5],[6,7,8],0)> AddOne [] Client Counter
+--   Msg <([6,7,8],[9,10,11],1)> Ping [Int, Int, Int] Client Server
+--   Msg <([9,10,11],[12,13,14],2)> Pong [] Server Client
+--   Goto [12,13,14] 0
+--   * BranchSt () SFalse
+--   Msg <([15,16,17],[18,19,20],0)> Stop [] Client Server
+--   Msg <([18,19,20],[21,22,23],1)> CStop [] Client Counter
+--   Terminal [21,22,23]
+-- ,--------------------CollectBranchVals-----------------
+-- fromList [0,1,2]
+-- ,--------------------AddNumN-----------------
+-- Label [0,1,2] 0
+-- [Branch] [0,1,2] Client
+--   * BranchSt () STrue
+--   Msg <([3,4,5],[6,7,8],0)> AddOne [] Client Counter
+--   Msg <([6,7,8],[9,10,11],1)> Ping [Int, Int, Int] Client Server
+--   Msg <([9,10,11],[12,13,14],2)> Pong [] Server Client
+--   Goto [12,13,14] 0
+--   * BranchSt () SFalse
+--   Msg <([15,16,17],[18,19,20],0)> Stop [] Client Server
+--   Msg <([18,19,20],[21,22,23],1)> CStop [] Client Counter
+--   Terminal [21,22,23]
+-- ,--------------------GenConst-----------------
+-- Label ([0,1,2],0) 0
+-- [Branch] [0,1,2] Client
+--   * BranchSt () STrue
+--   Msg <(([3,4,5],[6,7,8]),(Client,Counter),0)> AddOne [] Client Counter
+--   Msg <(([6,7,8],[9,10,11]),(Client,Server),1)> Ping [ Int
+--                                                      , Int
+--                                                      , Int ] Client Server
+--   Msg <(([9,10,11],[12,13,14]),(Server,Client),2)> Pong [] Server Client
+--   Goto ([12,13,14],0) 0
+--   * BranchSt () SFalse
+--   Msg <(([15,16,17],[18,19,20]),(Client,Server),0)> Stop [] Client Server
+--   Msg <(([18,19,20],[21,22,23]),(Client,Counter),1)> CStop [] Client Counter
+--   Terminal [21,22,23]
+-- ,--------------------Constrains-----------------
+-- fromList [Constraint 1 4,Constraint 2 5,Constraint 3 5,Constraint 4 7,Constraint 6 7,Constraint 8 11,Constraint 10 9,Constraint 11 14,Constraint 12 0,Constraint 13 1,Constraint 14 2,Constraint 1 16,Constraint 2 17,Constraint 15 16,Constraint 17 20,Constraint 18 20,Constraint 19 22,Constraint 21 (-1),Constraint 22 (-1),Constraint 23 (-1)]
+-- ,--------------------SubMap-----------------
+-- fromList [(3,2),(4,1),(5,2),(6,1),(7,1),(8,2),(9,3),(10,3),(11,2),(12,0),(13,1),(14,2),(15,1),(16,1),(17,2),(18,2),(19,-1),(20,2),(21,-1),(22,-1),(23,-1)]
+-- ,--------------------GenConstN-----------------
+-- Label ([0,1,2],0) 0
+-- [Branch] [0,1,2] Client
+--   * BranchSt () STrue
+--   Msg <(([2,1,2],[1,1,2]),(Client,Counter),0)> AddOne [] Client Counter
+--   Msg <(([1,1,2],[3,3,2]),(Client,Server),1)> Ping [Int, Int, Int] Client Server
+--   Msg <(([3,3,2],[0,1,2]),(Server,Client),2)> Pong [] Server Client
+--   Goto ([0,1,2],0) 0
+--   * BranchSt () SFalse
+--   Msg <(([1,1,2],[2,-1,2]),(Client,Server),0)> Stop [] Client Server
+--   Msg <(([2,-1,2],[-1,-1,-1]),(Client,Counter),1)> CStop [] Client Counter
+--   Terminal [-1,-1,-1]
+-- ,--------------------CollectBranchDynVal-----------------
+-- fromList [1,2]
+-- ,--------------------MsgT-----------------
+-- Label ([S0,S1 s,S2 s],0) 0
+-- [Branch] [S0,S1 s,S2 s] Client
+--   * BranchSt () STrue
+--   Msg <([S2 STrue,S1 s,S2 s],(Client,Counter),0)> AddOne [] Client Counter
+--   Msg <([S1 STrue,S1 s,S2 s],(Client,Server),1)> Ping [ Int
+--                                                       , Int
+--                                                       , Int ] Client Server
+--   Msg <([S3,S3,S2 s],(Server,Client),2)> Pong [] Server Client
+--   Goto ([S0,S1 s,S2 s],0) 0
+--   * BranchSt () SFalse
+--   Msg <([S1 SFalse,S1 s,S2 s],(Client,Server),0)> Stop [] Client Server
+--   Msg <([S2 SFalse,End,S2 s],(Client,Counter),1)> CStop [] Client Counter
+--   Terminal [End,End,End]
+-- ,--------------------MsgT1-----------------
+-- Label ([S0,S1 s,S2 s],0) 0
+-- [Branch] [S0,S1 s,S2 s] Client
+--   * BranchSt () STrue
+--   Msg <((S2 STrue,S1 STrue,S2 s),(Client,Counter),0)> AddOne [] Client Counter
+--   Msg <((S1 STrue,S3,S3),(Client,Server),1)> Ping [Int, Int, Int] Client Server
+--   Msg <((S3,S1 s,S0),(Server,Client),2)> Pong [] Server Client
+--   Goto ([S0,S1 s,S2 s],0) 0
+--   * BranchSt () SFalse
+--   Msg <((S1 SFalse,S2 SFalse,End),(Client,Server),0)> Stop [] Client Server
+--   Msg <((S2 SFalse,End,End),(Client,Counter),1)> CStop [] Client Counter
+--   Terminal [End,End,End]
+-- ]
 -- -------------------------------------Client--------------Server-------------Counter
 -- LABEL 0                                S0                 S1 s                S2 s
 --   [Branch Client]                      S0                 S1 s                S2 s
@@ -92,52 +173,6 @@ data BookBranchSt
   | NotEnough
   deriving (Show, Eq, Ord, Enum, Bounded)
 
-v2 :: Protocol Creat Role BookBranchSt
-v2 =
-  Label 0
-    :> Msg "Title" ["String"] Buyer Seller
-    :> Branch
-      Seller
-      [ BranchSt NotFound $
-          Msg "NoBook" [] Seller Buyer
-            :> Msg "SellerNoBook" [] Buyer Buyer2
-            :> Goto 0
-      , BranchSt Found $
-          Msg "Price" ["Int"] Seller Buyer
-            :> Branch
-              Buyer
-              [ BranchSt One $
-                  Msg "OneAfford" [] Buyer Buyer2
-                    :> Msg "OneAccept" [] Buyer Seller
-                    :> Msg "OneDate" ["Int"] Seller Buyer
-                    :> Msg "OneSuccess" ["Int"] Buyer Buyer2
-                    :> Goto 0
-              , BranchSt Two $
-                  Msg "PriceToBuyer2" ["Int"] Buyer Buyer2
-                    :> Branch
-                      Buyer2
-                      [ BranchSt NotSupport $
-                          Msg "NotSupport1" [] Buyer2 Buyer
-                            :> Msg "TwoNotBuy" [] Buyer Seller
-                            :> Goto 0
-                      , BranchSt Support $
-                          Msg "SupportVal" ["Int"] Buyer2 Buyer
-                            :> Branch
-                              Buyer
-                              [ BranchSt Enough $
-                                  Msg "TwoAccept" [] Buyer Seller
-                                    :> Msg "TwoDate" ["Int"] Seller Buyer
-                                    :> Msg "TwoSuccess" ["Int"] Buyer Buyer2
-                                    :> Goto 0
-                              , BranchSt NotEnough $
-                                  Msg "TwoNotBuy1" [] Buyer Seller
-                                    :> Msg "TwoFailed" [] Buyer Buyer2
-                                    :> Terminal
-                              ]
-                      ]
-              ]
-      ]
-
 s2 =
   [r|
   Label 0
@@ -151,7 +186,6 @@ s2 =
           Msg "Price" ["Int"] Seller Buyer
           Branch Buyer
             BranchSt One 
-              Msg "OneOffecd" [] Buyer Buyer2
               Msg "OneAccept" [] Buyer Seller
               Msg "OneDate" ["Int"] Seller Buyer
               Msg "OneSuccess" ["Int"] Buyer Buyer2
@@ -200,6 +234,7 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <()> Price [Int] Seller Buyer
 --   [Branch] () Buyer
 --     * BranchSt () One
+--     Msg <()> OneOffecd [] Buyer Buyer2
 --     Msg <()> OneAccept [] Buyer Seller
 --     Msg <()> OneDate [Int] Seller Buyer
 --     Msg <()> OneSuccess [Int] Buyer Buyer2
@@ -235,105 +270,108 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <([15,16,17],[18,19,20],0)> Price [Int] Seller Buyer
 --   [Branch] [18,19,20] Buyer
 --     * BranchSt () One
---     Msg <([21,22,23],[24,25,26],0)> OneAccept [] Buyer Seller
---     Msg <([24,25,26],[27,28,29],1)> OneDate [Int] Seller Buyer
---     Msg <([27,28,29],[30,31,32],2)> OneSuccess [Int] Buyer Buyer2
---     Goto [30,31,32] 0
+--     Msg <([21,22,23],[24,25,26],0)> OneOffecd [] Buyer Buyer2
+--     Msg <([24,25,26],[27,28,29],1)> OneAccept [] Buyer Seller
+--     Msg <([27,28,29],[30,31,32],2)> OneDate [Int] Seller Buyer
+--     Msg <([30,31,32],[33,34,35],3)> OneSuccess [Int] Buyer Buyer2
+--     Goto [33,34,35] 0
 --     * BranchSt () Two
---     Msg <([33,34,35],[36,37,38],0)> PriceToBuyer2 [Int] Buyer Buyer2
---     [Branch] [36,37,38] Buyer2
+--     Msg <([36,37,38],[39,40,41],0)> PriceToBuyer2 [Int] Buyer Buyer2
+--     [Branch] [39,40,41] Buyer2
 --       * BranchSt () NotSupport
---       Msg <([39,40,41],[42,43,44],0)> NotSupport1 [] Buyer2 Buyer
---       Msg <([42,43,44],[45,46,47],1)> TwoNotBuy [] Buyer Seller
---       Goto [45,46,47] 0
+--       Msg <([42,43,44],[45,46,47],0)> NotSupport1 [] Buyer2 Buyer
+--       Msg <([45,46,47],[48,49,50],1)> TwoNotBuy [] Buyer Seller
+--       Goto [48,49,50] 0
 --       * BranchSt () Support
---       Msg <([48,49,50],[51,52,53],0)> SupportVal [Int] Buyer2 Buyer
---       [Branch] [51,52,53] Buyer
+--       Msg <([51,52,53],[54,55,56],0)> SupportVal [Int] Buyer2 Buyer
+--       [Branch] [54,55,56] Buyer
 --         * BranchSt () Enough
---         Msg <([54,55,56],[57,58,59],0)> TwoAccept [] Buyer Seller
---         Msg <([57,58,59],[60,61,62],1)> TwoDate [Int] Seller Buyer
---         Msg <([60,61,62],[63,64,65],2)> TwoSuccess [Int] Buyer Buyer2
---         Goto [63,64,65] 0
+--         Msg <([57,58,59],[60,61,62],0)> TwoAccept [] Buyer Seller
+--         Msg <([60,61,62],[63,64,65],1)> TwoDate [Int] Seller Buyer
+--         Msg <([63,64,65],[66,67,68],2)> TwoSuccess [Int] Buyer Buyer2
+--         Goto [66,67,68] 0
 --         * BranchSt () NotEnough
---         Msg <([66,67,68],[69,70,71],0)> TwoNotBuy1 [] Buyer Seller
---         Msg <([69,70,71],[72,73,74],1)> TwoFailed [] Buyer Buyer2
---         Terminal [72,73,74]
+--         Msg <([69,70,71],[72,73,74],0)> TwoNotBuy1 [] Buyer Seller
+--         Msg <([72,73,74],[75,76,77],1)> TwoFailed [] Buyer Buyer2
+--         Terminal [75,76,77]
 -- ,--------------------CollectBranchVals-----------------
--- fromList [3,4,5,18,19,20,36,37,38,51,52,53]
+-- fromList [3,4,5,18,19,20,39,40,41,54,55,56]
 -- ,--------------------AddNumN-----------------
 -- Label [0,1,2] 0
 -- Msg <([0,1,2],[3,4,5],100)> Title [String] Buyer Seller
 -- [Branch] [3,4,5] Seller
 --   * BranchSt () NotFound
---   Msg <([18,19,20],[36,37,38],0)> NoBook [] Seller Buyer
---   Msg <([36,37,38],[51,52,53],1)> SellerNoBook [] Buyer Buyer2
---   Goto [51,52,53] 0
+--   Msg <([18,19,20],[39,40,41],0)> NoBook [] Seller Buyer
+--   Msg <([39,40,41],[54,55,56],1)> SellerNoBook [] Buyer Buyer2
+--   Goto [54,55,56] 0
 --   * BranchSt () Found
 --   Msg <([15,16,17],[6,7,8],0)> Price [Int] Seller Buyer
 --   [Branch] [6,7,8] Buyer
 --     * BranchSt () One
---     Msg <([21,22,23],[24,25,26],0)> OneAccept [] Buyer Seller
---     Msg <([24,25,26],[27,28,29],1)> OneDate [Int] Seller Buyer
---     Msg <([27,28,29],[30,31,32],2)> OneSuccess [Int] Buyer Buyer2
---     Goto [30,31,32] 0
+--     Msg <([21,22,23],[24,25,26],0)> OneOffecd [] Buyer Buyer2
+--     Msg <([24,25,26],[27,28,29],1)> OneAccept [] Buyer Seller
+--     Msg <([27,28,29],[30,31,32],2)> OneDate [Int] Seller Buyer
+--     Msg <([30,31,32],[33,34,35],3)> OneSuccess [Int] Buyer Buyer2
+--     Goto [33,34,35] 0
 --     * BranchSt () Two
---     Msg <([33,34,35],[9,10,11],0)> PriceToBuyer2 [Int] Buyer Buyer2
+--     Msg <([36,37,38],[9,10,11],0)> PriceToBuyer2 [Int] Buyer Buyer2
 --     [Branch] [9,10,11] Buyer2
 --       * BranchSt () NotSupport
---       Msg <([39,40,41],[42,43,44],0)> NotSupport1 [] Buyer2 Buyer
---       Msg <([42,43,44],[45,46,47],1)> TwoNotBuy [] Buyer Seller
---       Goto [45,46,47] 0
+--       Msg <([42,43,44],[45,46,47],0)> NotSupport1 [] Buyer2 Buyer
+--       Msg <([45,46,47],[48,49,50],1)> TwoNotBuy [] Buyer Seller
+--       Goto [48,49,50] 0
 --       * BranchSt () Support
---       Msg <([48,49,50],[12,13,14],0)> SupportVal [Int] Buyer2 Buyer
+--       Msg <([51,52,53],[12,13,14],0)> SupportVal [Int] Buyer2 Buyer
 --       [Branch] [12,13,14] Buyer
 --         * BranchSt () Enough
---         Msg <([54,55,56],[57,58,59],0)> TwoAccept [] Buyer Seller
---         Msg <([57,58,59],[60,61,62],1)> TwoDate [Int] Seller Buyer
---         Msg <([60,61,62],[63,64,65],2)> TwoSuccess [Int] Buyer Buyer2
---         Goto [63,64,65] 0
+--         Msg <([57,58,59],[60,61,62],0)> TwoAccept [] Buyer Seller
+--         Msg <([60,61,62],[63,64,65],1)> TwoDate [Int] Seller Buyer
+--         Msg <([63,64,65],[66,67,68],2)> TwoSuccess [Int] Buyer Buyer2
+--         Goto [66,67,68] 0
 --         * BranchSt () NotEnough
---         Msg <([66,67,68],[69,70,71],0)> TwoNotBuy1 [] Buyer Seller
---         Msg <([69,70,71],[72,73,74],1)> TwoFailed [] Buyer Buyer2
---         Terminal [72,73,74]
+--         Msg <([69,70,71],[72,73,74],0)> TwoNotBuy1 [] Buyer Seller
+--         Msg <([72,73,74],[75,76,77],1)> TwoFailed [] Buyer Buyer2
+--         Terminal [75,76,77]
 -- ,--------------------GenConst-----------------
 -- Label ([0,1,2],0) 0
 -- Msg <(([0,1,2],[3,4,5]),(Buyer,Seller),100)> Title [String] Buyer Seller
 -- [Branch] [3,4,5] Seller
 --   * BranchSt () NotFound
---   Msg <(([18,19,20],[36,37,38]),(Seller,Buyer),0)> NoBook [] Seller Buyer
---   Msg <(([36,37,38],[51,52,53]),(Buyer,Buyer2),1)> SellerNoBook [] Buyer Buyer2
---   Goto ([51,52,53],0) 0
+--   Msg <(([18,19,20],[39,40,41]),(Seller,Buyer),0)> NoBook [] Seller Buyer
+--   Msg <(([39,40,41],[54,55,56]),(Buyer,Buyer2),1)> SellerNoBook [] Buyer Buyer2
+--   Goto ([54,55,56],0) 0
 --   * BranchSt () Found
 --   Msg <(([15,16,17],[6,7,8]),(Seller,Buyer),0)> Price [Int] Seller Buyer
 --   [Branch] [6,7,8] Buyer
 --     * BranchSt () One
---     Msg <(([21,22,23],[24,25,26]),(Buyer,Seller),0)> OneAccept [] Buyer Seller
---     Msg <(([24,25,26],[27,28,29]),(Seller,Buyer),1)> OneDate [Int] Seller Buyer
---     Msg <(([27,28,29],[30,31,32]),(Buyer,Buyer2),2)> OneSuccess [ Int ] Buyer Buyer2
---     Goto ([30,31,32],0) 0
+--     Msg <(([21,22,23],[24,25,26]),(Buyer,Buyer2),0)> OneOffecd [] Buyer Buyer2
+--     Msg <(([24,25,26],[27,28,29]),(Buyer,Seller),1)> OneAccept [] Buyer Seller
+--     Msg <(([27,28,29],[30,31,32]),(Seller,Buyer),2)> OneDate [Int] Seller Buyer
+--     Msg <(([30,31,32],[33,34,35]),(Buyer,Buyer2),3)> OneSuccess [ Int ] Buyer Buyer2
+--     Goto ([33,34,35],0) 0
 --     * BranchSt () Two
---     Msg <(([33,34,35],[9,10,11]),(Buyer,Buyer2),0)> PriceToBuyer2 [ Int ] Buyer Buyer2
+--     Msg <(([36,37,38],[9,10,11]),(Buyer,Buyer2),0)> PriceToBuyer2 [ Int ] Buyer Buyer2
 --     [Branch] [9,10,11] Buyer2
 --       * BranchSt () NotSupport
---       Msg <(([39,40,41],[42,43,44]),(Buyer2,Buyer),0)> NotSupport1 [  ] Buyer2 Buyer
---       Msg <(([42,43,44],[45,46,47]),(Buyer,Seller),1)> TwoNotBuy [] Buyer Seller
---       Goto ([45,46,47],0) 0
+--       Msg <(([42,43,44],[45,46,47]),(Buyer2,Buyer),0)> NotSupport1 [  ] Buyer2 Buyer
+--       Msg <(([45,46,47],[48,49,50]),(Buyer,Seller),1)> TwoNotBuy [] Buyer Seller
+--       Goto ([48,49,50],0) 0
 --       * BranchSt () Support
---       Msg <(([48,49,50],[12,13,14]),(Buyer2,Buyer),0)> SupportVal [ Int ] Buyer2 Buyer
+--       Msg <(([51,52,53],[12,13,14]),(Buyer2,Buyer),0)> SupportVal [ Int ] Buyer2 Buyer
 --       [Branch] [12,13,14] Buyer
 --         * BranchSt () Enough
---         Msg <(([54,55,56],[57,58,59]),(Buyer,Seller),0)> TwoAccept [  ] Buyer Seller
---         Msg <(([57,58,59],[60,61,62]),(Seller,Buyer),1)> TwoDate [ Int ] Seller Buyer
---         Msg <(([60,61,62],[63,64,65]),(Buyer,Buyer2),2)> TwoSuccess [ Int ] Buyer Buyer2
---         Goto ([63,64,65],0) 0
+--         Msg <(([57,58,59],[60,61,62]),(Buyer,Seller),0)> TwoAccept [  ] Buyer Seller
+--         Msg <(([60,61,62],[63,64,65]),(Seller,Buyer),1)> TwoDate [ Int ] Seller Buyer
+--         Msg <(([63,64,65],[66,67,68]),(Buyer,Buyer2),2)> TwoSuccess [ Int ] Buyer Buyer2
+--         Goto ([66,67,68],0) 0
 --         * BranchSt () NotEnough
---         Msg <(([66,67,68],[69,70,71]),(Buyer,Seller),0)> TwoNotBuy1 [  ] Buyer Seller
---         Msg <(([69,70,71],[72,73,74]),(Buyer,Buyer2),1)> TwoFailed [  ] Buyer Buyer2
---         Terminal [72,73,74]
+--         Msg <(([69,70,71],[72,73,74]),(Buyer,Seller),0)> TwoNotBuy1 [  ] Buyer Seller
+--         Msg <(([72,73,74],[75,76,77]),(Buyer,Buyer2),1)> TwoFailed [  ] Buyer Buyer2
+--         Terminal [75,76,77]
 -- ,--------------------Constrains-----------------
--- fromList [Constraint 0 1,Constraint 2 5,Constraint 3 18,Constraint 5 20,Constraint 19 18,Constraint 20 38,Constraint 36 38,Constraint 37 52,Constraint 51 0,Constraint 52 1,Constraint 53 2,Constraint 3 15,Constraint 5 17,Constraint 16 15,Constraint 17 8,Constraint 7 22,Constraint 8 23,Constraint 21 22,Constraint 23 26,Constraint 25 24,Constraint 26 29,Constraint 27 29,Constraint 28 31,Constraint 30 0,Constraint 31 1,Constraint 32 2,Constraint 7 34,Constraint 8 35,Constraint 33 35,Constraint 34 10,Constraint 9 39,Constraint 10 40,Constraint 41 39,Constraint 40 43,Constraint 42 43,Constraint 44 47,Constraint 45 0,Constraint 46 1,Constraint 47 2,Constraint 9 48,Constraint 10 49,Constraint 50 48,Constraint 49 13,Constraint 13 55,Constraint 14 56,Constraint 54 55,Constraint 56 59,Constraint 58 57,Constraint 59 62,Constraint 60 62,Constraint 61 64,Constraint 63 0,Constraint 64 1,Constraint 65 2,Constraint 13 67,Constraint 14 68,Constraint 66 67,Constraint 68 71,Constraint 69 71,Constraint 70 73,Constraint 72 (-1),Constraint 73 (-1),Constraint 74 (-1)]
+-- fromList [Constraint 0 1,Constraint 2 5,Constraint 3 18,Constraint 5 20,Constraint 19 18,Constraint 20 41,Constraint 39 41,Constraint 40 55,Constraint 54 0,Constraint 55 1,Constraint 56 2,Constraint 3 15,Constraint 5 17,Constraint 16 15,Constraint 17 8,Constraint 7 22,Constraint 8 23,Constraint 21 23,Constraint 22 25,Constraint 24 25,Constraint 26 29,Constraint 28 27,Constraint 29 32,Constraint 30 32,Constraint 31 34,Constraint 33 0,Constraint 34 1,Constraint 35 2,Constraint 7 37,Constraint 8 38,Constraint 36 38,Constraint 37 10,Constraint 9 42,Constraint 10 43,Constraint 44 42,Constraint 43 46,Constraint 45 46,Constraint 47 50,Constraint 48 0,Constraint 49 1,Constraint 50 2,Constraint 9 51,Constraint 10 52,Constraint 53 51,Constraint 52 13,Constraint 13 58,Constraint 14 59,Constraint 57 58,Constraint 59 62,Constraint 61 60,Constraint 62 65,Constraint 63 65,Constraint 64 67,Constraint 66 0,Constraint 67 1,Constraint 68 2,Constraint 13 70,Constraint 14 71,Constraint 69 70,Constraint 71 74,Constraint 72 74,Constraint 73 76,Constraint 75 (-1),Constraint 76 (-1),Constraint 77 (-1)]
 -- ,--------------------SubMap-----------------
--- fromList [(1,0),(2,1),(3,2),(4,3),(5,1),(6,4),(7,5),(8,1),(9,6),(10,5),(11,7),(12,8),(13,5),(14,9),(15,2),(16,2),(17,1),(18,2),(19,2),(20,1),(21,5),(22,5),(23,1),(24,10),(25,10),(26,1),(27,1),(28,0),(29,1),(30,0),(31,0),(32,1),(33,1),(34,5),(35,1),(36,1),(37,0),(38,1),(39,6),(40,5),(41,6),(42,5),(43,5),(44,1),(45,0),(46,0),(47,1),(48,6),(49,5),(50,6),(51,0),(52,0),(53,1),(54,5),(55,5),(56,9),(57,11),(58,11),(59,9),(60,9),(61,0),(62,9),(63,0),(64,0),(65,1),(66,5),(67,5),(68,9),(69,9),(70,-1),(71,9),(72,-1),(73,-1),(74,-1)]
+-- fromList [(1,0),(2,1),(3,2),(4,3),(5,1),(6,4),(7,5),(8,1),(9,6),(10,5),(11,7),(12,8),(13,5),(14,9),(15,2),(16,2),(17,1),(18,2),(19,2),(20,1),(21,1),(22,5),(23,1),(24,5),(25,5),(26,10),(27,11),(28,11),(29,10),(30,10),(31,0),(32,10),(33,0),(34,0),(35,1),(36,1),(37,5),(38,1),(39,1),(40,0),(41,1),(42,6),(43,5),(44,6),(45,5),(46,5),(47,1),(48,0),(49,0),(50,1),(51,6),(52,5),(53,6),(54,0),(55,0),(56,1),(57,5),(58,5),(59,9),(60,12),(61,12),(62,9),(63,9),(64,0),(65,9),(66,0),(67,0),(68,1),(69,5),(70,5),(71,9),(72,9),(73,-1),(74,9),(75,-1),(76,-1),(77,-1)]
 -- ,--------------------GenConstN-----------------
 -- Label ([0,0,1],0) 0
 -- Msg <(([0,0,1],[2,3,1]),(Buyer,Seller),100)> Title [String] Buyer Seller
@@ -346,9 +384,10 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <(([2,2,1],[4,5,1]),(Seller,Buyer),0)> Price [Int] Seller Buyer
 --   [Branch] [4,5,1] Buyer
 --     * BranchSt () One
---     Msg <(([5,5,1],[10,10,1]),(Buyer,Seller),0)> OneAccept [] Buyer Seller
---     Msg <(([10,10,1],[1,0,1]),(Seller,Buyer),1)> OneDate [Int] Seller Buyer
---     Msg <(([1,0,1],[0,0,1]),(Buyer,Buyer2),2)> OneSuccess [Int] Buyer Buyer2
+--     Msg <(([1,5,1],[5,5,10]),(Buyer,Buyer2),0)> OneOffecd [] Buyer Buyer2
+--     Msg <(([5,5,10],[11,11,10]),(Buyer,Seller),1)> OneAccept [] Buyer Seller
+--     Msg <(([11,11,10],[10,0,10]),(Seller,Buyer),2)> OneDate [Int] Seller Buyer
+--     Msg <(([10,0,10],[0,0,1]),(Buyer,Buyer2),3)> OneSuccess [Int] Buyer Buyer2
 --     Goto ([0,0,1],0) 0
 --     * BranchSt () Two
 --     Msg <(([1,5,1],[6,5,7]),(Buyer,Buyer2),0)> PriceToBuyer2 [Int] Buyer Buyer2
@@ -361,8 +400,8 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --       Msg <(([6,5,6],[8,5,9]),(Buyer2,Buyer),0)> SupportVal [Int] Buyer2 Buyer
 --       [Branch] [8,5,9] Buyer
 --         * BranchSt () Enough
---         Msg <(([5,5,9],[11,11,9]),(Buyer,Seller),0)> TwoAccept [] Buyer Seller
---         Msg <(([11,11,9],[9,0,9]),(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
+--         Msg <(([5,5,9],[12,12,9]),(Buyer,Seller),0)> TwoAccept [] Buyer Seller
+--         Msg <(([12,12,9],[9,0,9]),(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
 --         Msg <(([9,0,9],[0,0,1]),(Buyer,Buyer2),2)> TwoSuccess [Int] Buyer Buyer2
 --         Goto ([0,0,1],0) 0
 --         * BranchSt () NotEnough
@@ -383,9 +422,10 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <([S2 s,S2 Found,S1 s],(Seller,Buyer),0)> Price [Int] Seller Buyer
 --   [Branch] [S4,S5 s,S1 s] Buyer
 --     * BranchSt () One
---     Msg <([S5 One,S5 s,S1 s],(Buyer,Seller),0)> OneAccept [] Buyer Seller
---     Msg <([S10,S10,S1 s],(Seller,Buyer),1)> OneDate [Int] Seller Buyer
---     Msg <([S1 One,S0,S1 s],(Buyer,Buyer2),2)> OneSuccess [Int] Buyer Buyer2
+--     Msg <([S1 One,S5 s,S1 s],(Buyer,Buyer2),0)> OneOffecd [] Buyer Buyer2
+--     Msg <([S5 One,S5 s,S10],(Buyer,Seller),1)> OneAccept [] Buyer Seller
+--     Msg <([S11,S11,S10],(Seller,Buyer),2)> OneDate [Int] Seller Buyer
+--     Msg <([S10,S0,S10],(Buyer,Buyer2),3)> OneSuccess [Int] Buyer Buyer2
 --     Goto ([S0,S0,S1 s],0) 0
 --     * BranchSt () Two
 --     Msg <([S1 Two,S5 s,S1 s],(Buyer,Buyer2),0)> PriceToBuyer2 [Int] Buyer Buyer2
@@ -399,7 +439,7 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --       [Branch] [S8,S5 s,S9 s] Buyer
 --         * BranchSt () Enough
 --         Msg <([S5 Enough,S5 s,S9 s],(Buyer,Seller),0)> TwoAccept [] Buyer Seller
---         Msg <([S11,S11,S9 s],(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
+--         Msg <([S12,S12,S9 s],(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
 --         Msg <([S9 Enough,S0,S9 s],(Buyer,Buyer2),2)> TwoSuccess [ Int ] Buyer Buyer2
 --         Goto ([S0,S0,S1 s],0) 0
 --         * BranchSt () NotEnough
@@ -418,9 +458,10 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <((S2 Found,S5 s,S4),(Seller,Buyer),0)> Price [Int] Seller Buyer
 --   [Branch] [S4,S5 s,S1 s] Buyer
 --     * BranchSt () One
---     Msg <((S5 One,S10,S10),(Buyer,Seller),0)> OneAccept [] Buyer Seller
---     Msg <((S10,S0,S1 One),(Seller,Buyer),1)> OneDate [Int] Seller Buyer
---     Msg <((S1 One,S0,S1 s),(Buyer,Buyer2),2)> OneSuccess [Int] Buyer Buyer2
+--     Msg <((S1 One,S5 One,S10),(Buyer,Buyer2),0)> OneOffecd [] Buyer Buyer2
+--     Msg <((S5 One,S11,S11),(Buyer,Seller),1)> OneAccept [] Buyer Seller
+--     Msg <((S11,S0,S10),(Seller,Buyer),2)> OneDate [Int] Seller Buyer
+--     Msg <((S10,S0,S1 s),(Buyer,Buyer2),3)> OneSuccess [Int] Buyer Buyer2
 --     Goto ([S0,S0,S1 s],0) 0
 --     * BranchSt () Two
 --     Msg <((S1 Two,S6 s,S7),(Buyer,Buyer2),0)> PriceToBuyer2 [Int] Buyer Buyer2
@@ -433,8 +474,8 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --       Msg <((S6 Support,S9 s,S8),(Buyer2,Buyer),0)> SupportVal [ Int ] Buyer2 Buyer
 --       [Branch] [S8,S5 s,S9 s] Buyer
 --         * BranchSt () Enough
---         Msg <((S5 Enough,S11,S11),(Buyer,Seller),0)> TwoAccept [] Buyer Seller
---         Msg <((S11,S0,S9 Enough),(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
+--         Msg <((S5 Enough,S12,S12),(Buyer,Seller),0)> TwoAccept [] Buyer Seller
+--         Msg <((S12,S0,S9 Enough),(Seller,Buyer),1)> TwoDate [Int] Seller Buyer
 --         Msg <((S9 Enough,S0,S1 s),(Buyer,Buyer2),2)> TwoSuccess [ Int ] Buyer Buyer2
 --         Goto ([S0,S0,S1 s],0) 0
 --         * BranchSt () NotEnough
@@ -454,9 +495,10 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --     Price                            S2 s<-           <-{S2 Found}            S1 s
 --     [Branch Buyer]                     S4                 S5 s                S1 s
 --       * BranchSt One
---       OneAccept                    {S5 One}->            ->S5 s               S1 s
---       OneDate                        S10<-               <-S10                S1 s
---       OneSuccess                    S1 One->               S0                ->S1 s
+--       OneOffecd                    {S1 One}->             S5 s               ->S1 s
+--       OneAccept                     S5 One->             ->S5 s               S10
+--       OneDate                        S11<-               <-S11                S10
+--       OneSuccess                     S10->                 S0                ->S10
 --       Goto 0                           S0                  S0                 S1 s
 --       * BranchSt Two
 --       PriceToBuyer2                {S1 Two}->             S5 s               ->S1 s
@@ -470,7 +512,7 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --         [Branch Buyer]                 S8                 S5 s                S9 s
 --           * BranchSt Enough
 --           TwoAccept              {S5 Enough}->           ->S5 s               S9 s
---           TwoDate                    S11<-               <-S11                S9 s
+--           TwoDate                    S12<-               <-S12                S9 s
 --           TwoSuccess              S9 Enough->              S0                ->S9 s
 --           Goto 0                       S0                  S0                 S1 s
 --           * BranchSt NotEnough

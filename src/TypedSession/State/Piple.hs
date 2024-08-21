@@ -108,8 +108,10 @@ so that it will be more advantageous when the protocol changes.
 -}
 mkBranchSubMap :: forall r. (Enum r, Bounded r) => [Int] -> C.SubMap
 mkBranchSubMap ls =
-  let l1 = [fromEnum (maxBound @r) + 1 ..]
-   in IntMap.fromList $ (zip ls l1 ++ zip l1 ls)
+  let ln = case ls of
+        [] -> []
+        (x : _) -> [x ..]
+   in IntMap.fromList $ (zip ls ln ++ zip ln ls)
 
 replBranchValXTraverse :: (Monad m) => C.SubMap -> XTraverse m AddNums AddNums r bst
 replBranchValXTraverse sbm =
