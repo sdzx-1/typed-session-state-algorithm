@@ -23,10 +23,10 @@ name:               typed-session-state-algorithm
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:
+synopsis: Automatically generate status for typed-session.
 
 -- A longer description of the package.
--- description:
+description: Consider the communication process as a state machine, and this lib will generate the required states.
 
 -- The license under which the package is released.
 license:            MIT
@@ -40,6 +40,7 @@ author:             sdzx-1
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         shangdizhixia1993@163.com
 
+category:           Algorithm
 -- A copyright notice.
 -- copyright:
 build-type:         Simple
@@ -74,12 +75,13 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base >=4.17.2.1
-                    , containers
-                    , fused-effects
-                    , prettyprinter
-                    , megaparsec
-                    , parser-combinators
+    build-depends:  base >= 4.20.0 && < 4.21,
+                    containers >= 0.7 && < 0.8,
+                    fused-effects >= 1.1.2 && < 1.2,
+                    megaparsec >= 9.6.1 && < 9.7,
+                    parser-combinators >= 1.3.0 && < 1.4,
+                    prettyprinter >= 1.7.1 && < 1.8,
+
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -114,3 +116,7 @@ test-suite typed-session-state-algorithm-test
         base >=4.17.2.1
       , typed-session-state-algorithm
       , raw-strings-qq
+
+source-repository head
+  type:     git
+  location: https://github.com/sdzx-1/typed-session-state-algorithm
