@@ -12,7 +12,6 @@ import qualified Data.List as L
 import Text.Megaparsec hiding (Label, label)
 import Text.Megaparsec.Char (char, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Text.Megaparsec.Debug (dbg)
 import TypedSession.State.Pattern
 import TypedSession.State.Type (BranchSt, Creat, MsgOrLabel, Protocol)
 
@@ -68,6 +67,9 @@ brackets = between (symbol "[") (symbol "]")
 
 braces :: Parser a -> Parser a
 braces = between (symbol "{") (symbol "}")
+
+dbg :: String -> m a -> m a
+dbg _ ma = ma
 
 constrOrType :: Parser String
 constrOrType = dbg "constrOrType" $ do
@@ -138,8 +140,9 @@ parseBranch
 parseBranch = dbg "Branch" $ do
   branch
   r1 <- mkParserA @r
-  branchSts <- some (parseBranchSt @bst @r)
-  pure (Branch r1 branchSts)
+  braces $ do
+    branchSts <- some (parseBranchSt @bst @r)
+    pure (Branch r1 branchSts)
 
 parseMsgOrLabel
   :: forall r bst
@@ -161,10 +164,9 @@ runProtocolParser
   :: forall r bst
    . (Enum r, Enum bst, Bounded r, Bounded bst, Show r, Show bst)
   => String
-  -> Either
-      String
-      (Protocol Creat r bst)
+  -> Either String (Protocol Creat r bst)
 runProtocolParser st =
-  case runParser (between spaceConsumer eof $ parseProtocol @r @bst) "" st of
-    Left e -> Left $ errorBundlePretty @String @ParserError e
-    Right a -> Right a
+  let res = runParser (between spaceConsumer eof $ parseProtocol @r @bst) "" st
+   in case res of
+        Left e -> Left $ errorBundlePretty @String @ParserError e
+        Right a -> Right a
