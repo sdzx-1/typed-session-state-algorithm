@@ -125,12 +125,12 @@ xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot o
 
 -- | ProtocolError
 data ProtocolError r bst
-  = AtLeastTwoBranches (Protocol Creat r bst)
+  = AtLeastTwoBranches (Protocol Idx r bst)
   | DefLabelMultTimes Int
   | LabelUndefined Int
-  | BranchNoMsg (Protocol Creat r bst)
-  | BranchFirstMsgMustHaveTheSameSender (Protocol Creat r bst)
-  | BranchNotNotifyAllOtherReceivers (Protocol Creat r bst)
+  | BranchNoMsg (Protocol Idx r bst)
+  | BranchFirstMsgMustHaveTheSameSender (Protocol Idx r bst)
+  | BranchNotNotifyAllOtherReceivers (Protocol Idx r bst)
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
@@ -144,6 +144,7 @@ instance (Show r, Show bst) => Show (ProtocolError r bst) where
       "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.\n" <> show prot
 
 ------------------------
+
 data Creat
 
 type instance XMsg Creat = ()
@@ -152,6 +153,15 @@ type instance XBranch Creat = ()
 type instance XBranchSt Creat = ()
 type instance XGoto Creat = ()
 type instance XTerminal Creat = ()
+
+data Idx
+
+type instance XMsg Idx = (Int, Int)
+type instance XLabel Idx = Int
+type instance XBranch Idx = Int
+type instance XBranchSt Idx = ()
+type instance XGoto Idx = Int
+type instance XTerminal Idx = Int
 
 data AddNums
 

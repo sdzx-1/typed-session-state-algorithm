@@ -16,16 +16,17 @@
 
 module TypedSession.State.Utils where
 
-import qualified TypedSession.State.Constraint as C
 import Control.Carrier.Fresh.Strict
 import Control.Carrier.State.Strict
 import Control.Effect.Writer
 import Control.Monad
+import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import qualified TypedSession.State.Constraint as C
 import TypedSession.State.Type
 import Prelude hiding (traverse)
 
@@ -71,3 +72,6 @@ compressSubMap sbm' =
 
 replaceList :: C.SubMap -> [Int] -> [Int]
 replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
+
+replaceVal :: IntMap Int -> Int -> Int
+replaceVal sbm k = fromMaybe (error "np") $ IntMap.lookup k sbm

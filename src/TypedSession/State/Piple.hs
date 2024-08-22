@@ -43,32 +43,62 @@ import TypedSession.State.Type
 import TypedSession.State.Utils
 
 ------------------------
-addNumsXTraverse
+
+addIdxXTraverse
   :: forall r bst sig m
-   . ( Has (Fresh :+: State Int :+: State [Int] :+: Error (ProtocolError r bst)) sig m
+   . ( Has (State Int :+: State (Set Int) :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      , Ord r
      )
-  => XTraverse m Creat AddNums r bst
+  => XTraverse m Creat Idx r bst
+addIdxXTraverse =
+  ( \_ -> do
+      inputIdx <- get @Int
+      modify @Int (+ 1)
+      outputInx <- get @Int
+      pure (inputIdx, outputInx)
+  , const get
+  , \(_, _) -> do
+      inputIdx <- get @Int
+      modify (Set.insert inputIdx)
+      pure (inputIdx, id)
+  , \_ -> modify @Int (+ 1)
+  , const get
+  , const get
+  )
+
+reRankXTraverse :: (Monad m) => IntMap Int -> XTraverse m Idx Idx r bst
+reRankXTraverse sbm =
+  ( \((a, b), _) -> pure (replaceVal sbm a, replaceVal sbm b)
+  , \(xs, _) -> pure (replaceVal sbm xs)
+  , \(a, _) -> pure (replaceVal sbm a, id)
+  , \_ -> pure ()
+  , \(xs, _) -> pure (replaceVal sbm xs)
+  , \xs -> pure (replaceVal sbm xs)
+  )
+
+addNumsXTraverse
+  :: forall r bst sig m
+   . ( Has (State Int :+: Error (ProtocolError r bst)) sig m
+     , Enum r
+     , Bounded r
+     , Ord r
+     )
+  => XTraverse m Idx AddNums r bst
 addNumsXTraverse =
-  let newNums i =
-        let tmp = rRange @r
-            sized = fromEnum (maxBound @r) + 1
-         in fmap (\x -> i * sized + fromEnum x) tmp
-   in ( \_ -> do
-          i <- fresh
-          inNums <- get
+  let mkNums i =
+        let sized = fromEnum (maxBound @r) + 1
+         in fmap (\x -> i * sized + fromEnum x) (rRange @r)
+   in ( \((va, vb), _) -> do
           idx <- get @Int
           modify @Int (+ 1)
-          let outNums = newNums i
-          put outNums
-          pure (inNums, outNums, idx)
-      , const get
-      , \(_, (r, ls)) -> do
+          pure (mkNums va, mkNums vb, idx)
+      , \(va, _) -> pure $ mkNums va
+      , \(va, (r, ls)) -> do
           let len = length ls
           -- At least two branches.
-          when (len < 2) (throwError (AtLeastTwoBranches (Branch () r ls)))
+          when (len < 2) (throwError (AtLeastTwoBranches (Branch va r ls)))
           void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
             -- The first message of each branch must have the same receiver and sender.
             case getFirstMsgInfo prot of
@@ -79,50 +109,11 @@ addNumsXTraverse =
             -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
             let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
             when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
-          -- create output
-          inNums <- get
-          pure (inNums, id)
-      , \_ -> do
-          i <- fresh
-          let outNums = newNums i
-          put outNums
-          put @Int 0
-      , const get
-      , const get
+          pure (mkNums va, id)
+      , \_ -> put @Int 0
+      , \(va, _) -> pure $ mkNums va
+      , \va -> pure $ mkNums va
       )
-
-collentBranchVals :: (Has (State (Set Int)) sig m) => XFold m AddNums r bst
-collentBranchVals =
-  ( \_ -> pure ()
-  , \_ -> pure ()
-  , \(xs, _) -> do
-      modify (Set.union (Set.fromList xs))
-      pure id
-  , \_ -> pure ()
-  , \_ -> pure ()
-  , \_ -> pure ()
-  )
-
-{- | The goal here is to make Branch's [Int] as small as possible,
-so that it will be more advantageous when the protocol changes.
--}
-mkBranchSubMap :: forall r. (Enum r, Bounded r) => [Int] -> C.SubMap
-mkBranchSubMap ls =
-  let ln = case ls of
-        [] -> []
-        (x : _) -> [x ..]
-   in IntMap.fromList $ (zip ls ln ++ zip ln ls)
-
-replBranchValXTraverse :: (Monad m) => C.SubMap -> XTraverse m AddNums AddNums r bst
-replBranchValXTraverse sbm =
-  ( \((as, bs, i), _) ->
-      pure (replaceList sbm as, replaceList sbm bs, i)
-  , \(xs, _) -> pure (replaceList sbm xs)
-  , \(a, _) -> pure (replaceList sbm a, id)
-  , \_ -> pure ()
-  , \(xs, _) -> pure (replaceList sbm xs)
-  , \xs -> pure (replaceList sbm xs)
-  )
 
 toGenConstrXTraverse :: (Monad m) => XTraverse m AddNums (GenConst r) r bst
 toGenConstrXTraverse =
@@ -261,6 +252,12 @@ data PipleResult r bst = PipleResult
   , stBound :: (Int, Int)
   }
 
+reRank :: Set Int -> Int -> IntMap Int
+reRank branchValSet maxSize =
+  let allSet = Set.insert 0 branchValSet
+      restList = [i | i <- [0 .. maxSize], i `Set.notMember` allSet]
+   in IntMap.fromList $ zip (Set.toList allSet ++ restList) [0 ..]
+
 piple'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
@@ -274,18 +271,18 @@ piple'
   -> m (PipleResult r bst)
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
-  prot1' <-
-    fmap (snd . snd . snd)
-      . runFresh 1
+  (brSet, (maxSzie, idxProt)) <-
+    runState @(Set Int) Set.empty $
+      runState @Int 0 (xtraverse addIdxXTraverse prot0)
+  trace (TracerProtocolIdx idxProt)
+  trace (TracerReRank (reRank brSet maxSzie))
+  idxProt1 <- xtraverse (reRankXTraverse (reRank brSet maxSzie)) idxProt
+  trace (TracerProtocolIdx idxProt1)
+  prot1 <-
+    fmap snd
       . runState @Int 100
-      . runState @[Int] (fmap fromEnum (rRange @r))
-      $ xtraverse addNumsXTraverse prot0
-  trace (TracerProtocolAddNum prot1')
-  branchVals <- fst <$> runState @(Set Int) (Set.empty) (xfold collentBranchVals prot1')
-  let branchSubMap = mkBranchSubMap @r (Set.toList branchVals)
-  trace (TracerBranchVals branchVals)
-  prot1 <- xtraverse (replBranchValXTraverse branchSubMap) prot1'
-  trace (TracerProtocolAddNumN prot1)
+      $ xtraverse addNumsXTraverse idxProt1
+  trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
   trace (TracerProtocolGenConst prot2)
   (constraintList, _) <-
