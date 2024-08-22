@@ -16,6 +16,7 @@ import Control.Carrier.State.Strict (runState)
 import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.State
 import Control.Effect.Writer
+import Control.Monad (when)
 import Data.IntMap (IntMap)
 import qualified Data.List as L
 import Data.Sequence (Seq)
@@ -82,7 +83,7 @@ reSt StrFillEnv{width} st =
 
 --------------------------------------------
 type XStringFill eta r bst =
-  ( XMsg eta -> [StringFill]
+  ( XMsg eta -> ([StringFill], Bool)
   , XLabel eta -> [StringFill]
   , XBranch eta -> [StringFill]
   , XBranchSt eta -> [StringFill]
@@ -104,22 +105,22 @@ renderXFold sfe (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
   ( \(xv, (con, _, _, _, _)) -> do
       indentVal <- get @Int
       let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt sfe con)]
-      tell [va ++ xmsg xv]
+          (xv', isFirst) = xmsg xv
+      when isFirst (modify @Int (+ 1))
+      tell [va ++ xv']
   , \(xv, i) -> tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
   , \(xv, (r, _)) -> do
       indentVal <- get @Int
       modify @Int (+ 1)
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch " ++ show r ++ "]")] ++ xbranch xv]
       pure (restoreWrapper @Int)
-  , \(_, (bst, _)) -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("* BranchSt " ++ show bst)]]
+  , \(_, (_, _)) -> pure ()
   , \(xv, i) -> do
       indentVal <- get @Int
       tell [[LeftAlign (indentVal * 2 + 3) ' ' ("Goto " ++ show i)] ++ xgoto xv]
   , \xv -> do
       indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' "~ Terminal"] ++ xterminal xv]
+      tell [[LeftAlign (indentVal * 2 + 3) ' ' "Terminal"] ++ xterminal xv]
   )
 
 runRender
@@ -186,9 +187,11 @@ stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => StrFillEnv -> XS
 stMsgT sfe =
   let
    in ( \(ls, (from, to), idx) ->
-          [ CenterFill ps ' ' $ foo from to ((if (i, idx) == (from, 0) then parensWarapper else id) $ show v) i
-          | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
-          ]
+          ( [ CenterFill ps ' ' $ foo from to ((if (i, idx) == (from, 0) then parensWarapper else id) $ show v) i
+            | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
+            ]
+          , idx == 0
+          )
       , \(xs, _) -> too @r sfe xs
       , \xs -> too @r sfe xs
       , \_ -> []
