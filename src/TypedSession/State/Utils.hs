@@ -68,7 +68,7 @@ compressSubMap sbm' =
       minVal = minimum vals
       tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [minVal, minVal + 1 ..]
       vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
-   in (IntMap.fromList $ zip keys vals', (minimum vals', maximum vals'))
+   in (IntMap.fromList $ zip keys vals', (-1, maximum vals'))
 
 replaceList :: C.SubMap -> [Int] -> [Int]
 replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
