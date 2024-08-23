@@ -1,5 +1,5 @@
 # Revision history for typed-session-state-algorithm
 
-## 0.1.0.0 -- YYYY-mm-dd
+## 0.1.0.1
 
-* First version. Released on an unsuspecting world.
+*Fix st min value must be -1. 
