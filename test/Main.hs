@@ -63,13 +63,13 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 -- Label 0 0
 -- [Branch] 0 Client
 --   * BranchSt () STrue
---   Msg <(1,2)> AddOne [] Client Counter
---   Msg <(2,3)> Ping [Int, Int, Int] Client Server
---   Msg <(3,4)> Pong [] Server Client
+--   Msg <(1,2,0)> AddOne [] Client Counter
+--   Msg <(2,3,1)> Ping [Int, Int, Int] Client Server
+--   Msg <(3,4,2)> Pong [] Server Client
 --   Goto 4 0
 --   * BranchSt () SFalse
---   Msg <(5,6)> Stop [] Client Server
---   Msg <(6,7)> CStop [] Client Counter
+--   Msg <(5,6,0)> Stop [] Client Server
+--   Msg <(6,7,1)> CStop [] Client Counter
 --   Terminal 7
 -- ,--------------------ReRank-----------------
 -- fromList [(0,0),(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7)]
@@ -77,13 +77,13 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 -- Label 0 0
 -- [Branch] 0 Client
 --   * BranchSt () STrue
---   Msg <(1,2)> AddOne [] Client Counter
---   Msg <(2,3)> Ping [Int, Int, Int] Client Server
---   Msg <(3,4)> Pong [] Server Client
+--   Msg <(1,2,0)> AddOne [] Client Counter
+--   Msg <(2,3,1)> Ping [Int, Int, Int] Client Server
+--   Msg <(3,4,2)> Pong [] Server Client
 --   Goto 4 0
 --   * BranchSt () SFalse
---   Msg <(5,6)> Stop [] Client Server
---   Msg <(6,7)> CStop [] Client Counter
+--   Msg <(5,6,0)> Stop [] Client Server
+--   Msg <(6,7,1)> CStop [] Client Counter
 --   Terminal 7
 -- ,--------------------AddNum-----------------
 -- Label [0,1,2] 0
@@ -159,15 +159,19 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 -- -------------------------------------Client--------------Server-------------Counter
 -- LABEL 0                                S0                 S1 s                S2 s
 --   [Branch Client]                      S0                 S1 s                S2 s
---     * BranchSt STrue
 --     AddOne                        {S2 STrue}->            S1 s               ->S2 s
---     Ping                           S1 STrue->            ->S1 s               S2 s
---     Pong                              S3<-                <-S3                S2 s
---     Goto 0                             S0                 S1 s                S2 s
---     * BranchSt SFalse
+--       Ping                         S1 STrue->            ->S1 s               S2 s
+--       Pong                            S3<-                <-S3                S2 s
+--       Goto 0                           S0                 S1 s                S2 s
 --     Stop                         {S1 SFalse}->           ->S1 s               S2 s
---     CStop                         S2 SFalse->             End                ->S2 s
---     ~ Terminal                        End                 End                 End
+--       CStop                       S2 SFalse->             End                ->S2 s
+--       Terminal                        End                 End                 End
+--       CStop                       S2 SFalse->             End                ->S2 s
+--       Terminal                        End                 End                 End
+--       CStop                       S2 SFalse->             End                ->S2 s
+--       Terminal                        End                 End                 End
+--       CStop                       S2 SFalse->             End                ->S2 s
+--       Terminal                        End                 End                 End
 
 data Role
   = Buyer
@@ -276,75 +280,75 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Goto () 0
 -- ,--------------------Idx-----------------
 -- Label 0 0
--- Msg <(0,1)> Title [String] Buyer Seller
+-- Msg <(0,1,100)> Title [String] Buyer Seller
 -- [Branch] 1 Seller
 --   * BranchSt () Found
---   Msg <(2,3)> Price [Int] Seller Buyer
+--   Msg <(2,3,0)> Price [Int] Seller Buyer
 --   [Branch] 3 Buyer
 --     * BranchSt () Two
---     Msg <(4,5)> PriceToBuyer2 [Int] Buyer Buyer2
+--     Msg <(4,5,0)> PriceToBuyer2 [Int] Buyer Buyer2
 --     [Branch] 5 Buyer2
 --       * BranchSt () NotSupport
---       Msg <(6,7)> NotSupport1 [] Buyer2 Buyer
---       Msg <(7,8)> TwoNotBuy [] Buyer Seller
+--       Msg <(6,7,0)> NotSupport1 [] Buyer2 Buyer
+--       Msg <(7,8,1)> TwoNotBuy [] Buyer Seller
 --       Goto 8 0
 --       * BranchSt () Support
---       Msg <(9,10)> SupportVal [Int] Buyer2 Buyer
+--       Msg <(9,10,0)> SupportVal [Int] Buyer2 Buyer
 --       [Branch] 10 Buyer
 --         * BranchSt () Enough
---         Msg <(11,12)> TwoAccept [] Buyer Seller
---         Msg <(12,13)> TwoDate [Int] Seller Buyer
---         Msg <(13,14)> TwoSuccess [Int] Buyer Buyer2
+--         Msg <(11,12,0)> TwoAccept [] Buyer Seller
+--         Msg <(12,13,1)> TwoDate [Int] Seller Buyer
+--         Msg <(13,14,2)> TwoSuccess [Int] Buyer Buyer2
 --         Goto 14 0
 --         * BranchSt () NotEnough
---         Msg <(15,16)> TwoNotBuy1 [] Buyer Seller
---         Msg <(16,17)> TwoFailed [] Buyer Buyer2
+--         Msg <(15,16,0)> TwoNotBuy1 [] Buyer Seller
+--         Msg <(16,17,1)> TwoFailed [] Buyer Buyer2
 --         Terminal 17
 --     * BranchSt () One
---     Msg <(18,19)> OneAccept [] Buyer Seller
---     Msg <(19,20)> OneDate [Int] Seller Buyer
---     Msg <(20,21)> OneSuccess [Int] Buyer Buyer2
+--     Msg <(18,19,0)> OneAccept [] Buyer Seller
+--     Msg <(19,20,1)> OneDate [Int] Seller Buyer
+--     Msg <(20,21,2)> OneSuccess [Int] Buyer Buyer2
 --     Goto 21 0
 --   * BranchSt () NotFound
---   Msg <(22,23)> NoBook [] Seller Buyer
---   Msg <(23,24)> SellerNoBook [] Buyer Buyer2
+--   Msg <(22,23,0)> NoBook [] Seller Buyer
+--   Msg <(23,24,1)> SellerNoBook [] Buyer Buyer2
 --   Goto 24 0
 -- ,--------------------ReRank-----------------
 -- fromList [(0,0),(1,1),(2,5),(3,2),(4,6),(5,3),(6,7),(7,8),(8,9),(9,10),(10,4),(11,11),(12,12),(13,13),(14,14),(15,15),(16,16),(17,17),(18,18),(19,19),(20,20),(21,21),(22,22),(23,23),(24,24)]
 -- ,--------------------Idx-----------------
 -- Label 0 0
--- Msg <(0,1)> Title [String] Buyer Seller
+-- Msg <(0,1,100)> Title [String] Buyer Seller
 -- [Branch] 1 Seller
 --   * BranchSt () Found
---   Msg <(5,2)> Price [Int] Seller Buyer
+--   Msg <(5,2,0)> Price [Int] Seller Buyer
 --   [Branch] 2 Buyer
 --     * BranchSt () Two
---     Msg <(6,3)> PriceToBuyer2 [Int] Buyer Buyer2
+--     Msg <(6,3,0)> PriceToBuyer2 [Int] Buyer Buyer2
 --     [Branch] 3 Buyer2
 --       * BranchSt () NotSupport
---       Msg <(7,8)> NotSupport1 [] Buyer2 Buyer
---       Msg <(8,9)> TwoNotBuy [] Buyer Seller
+--       Msg <(7,8,0)> NotSupport1 [] Buyer2 Buyer
+--       Msg <(8,9,1)> TwoNotBuy [] Buyer Seller
 --       Goto 9 0
 --       * BranchSt () Support
---       Msg <(10,4)> SupportVal [Int] Buyer2 Buyer
+--       Msg <(10,4,0)> SupportVal [Int] Buyer2 Buyer
 --       [Branch] 4 Buyer
 --         * BranchSt () Enough
---         Msg <(11,12)> TwoAccept [] Buyer Seller
---         Msg <(12,13)> TwoDate [Int] Seller Buyer
---         Msg <(13,14)> TwoSuccess [Int] Buyer Buyer2
+--         Msg <(11,12,0)> TwoAccept [] Buyer Seller
+--         Msg <(12,13,1)> TwoDate [Int] Seller Buyer
+--         Msg <(13,14,2)> TwoSuccess [Int] Buyer Buyer2
 --         Goto 14 0
 --         * BranchSt () NotEnough
---         Msg <(15,16)> TwoNotBuy1 [] Buyer Seller
---         Msg <(16,17)> TwoFailed [] Buyer Buyer2
+--         Msg <(15,16,0)> TwoNotBuy1 [] Buyer Seller
+--         Msg <(16,17,1)> TwoFailed [] Buyer Buyer2
 --         Terminal 17
 --     * BranchSt () One
---     Msg <(18,19)> OneAccept [] Buyer Seller
---     Msg <(19,20)> OneDate [Int] Seller Buyer
---     Msg <(20,21)> OneSuccess [Int] Buyer Buyer2
+--     Msg <(18,19,0)> OneAccept [] Buyer Seller
+--     Msg <(19,20,1)> OneDate [Int] Seller Buyer
+--     Msg <(20,21,2)> OneSuccess [Int] Buyer Buyer2
 --     Goto 21 0
 --   * BranchSt () NotFound
---   Msg <(22,23)> NoBook [] Seller Buyer
---   Msg <(23,24)> SellerNoBook [] Buyer Buyer2
+--   Msg <(22,23,0)> NoBook [] Seller Buyer
+--   Msg <(23,24,1)> SellerNoBook [] Buyer Buyer2
 --   Goto 24 0
 -- ,--------------------AddNum-----------------
 -- Label [0,1,2] 0
@@ -532,34 +536,26 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 -- LABEL 0                                S0                  S0                 S1 s
 --   Title                               S0->                ->S0                S1 s
 --   [Branch Seller]                     S2 s                 S3                 S1 s
---     * BranchSt Found
 --     Price                            S2 s<-           <-{S2 Found}            S1 s
---     [Branch Buyer]                     S4                 S5 s                S1 s
---       * BranchSt Two
---       PriceToBuyer2                {S1 Two}->             S5 s               ->S1 s
---       [Branch Buyer2]                 S6 s                S5 s                 S7
---         * BranchSt NotSupport
---         NotSupport1                  S6 s<-               S5 s         <-{S6 NotSupport}
---         TwoNotBuy               S5 NotSupport->          ->S5 s               S1 s
---         Goto 0                         S0                  S0                 S1 s
---         * BranchSt Support
---         SupportVal                   S6 s<-               S5 s           <-{S6 Support}
---         [Branch Buyer]                 S8                 S5 s                S9 s
---           * BranchSt Enough
---           TwoAccept              {S5 Enough}->           ->S5 s               S9 s
---           TwoDate                    S10<-               <-S10                S9 s
---           TwoSuccess              S9 Enough->              S0                ->S9 s
+--       [Branch Buyer]                   S4                 S5 s                S1 s
+--         PriceToBuyer2              {S1 Two}->             S5 s               ->S1 s
+--           [Branch Buyer2]             S6 s                S5 s                 S7
+--             NotSupport1              S6 s<-               S5 s         <-{S6 NotSupport}
+--               TwoNotBuy         S5 NotSupport->          ->S5 s               S1 s
+--               Goto 0                   S0                  S0                 S1 s
+--             SupportVal               S6 s<-               S5 s           <-{S6 Support}
+--               [Branch Buyer]           S8                 S5 s                S9 s
+--                 TwoAccept        {S5 Enough}->           ->S5 s               S9 s
+--                   TwoDate            S10<-               <-S10                S9 s
+--                   TwoSuccess      S9 Enough->              S0                ->S9 s
+--                   Goto 0               S0                  S0                 S1 s
+--                 TwoNotBuy1      {S5 NotEnough}->         ->S5 s               S9 s
+--                   TwoFailed      S9 NotEnough->           End                ->S9 s
+--                   Terminal            End                 End                 End
+--         OneAccept                  {S5 One}->            ->S5 s               S1 s
+--           OneDate                    S11<-               <-S11                S1 s
+--           OneSuccess                S1 One->               S0                ->S1 s
 --           Goto 0                       S0                  S0                 S1 s
---           * BranchSt NotEnough
---           TwoNotBuy1            {S5 NotEnough}->         ->S5 s               S9 s
---           TwoFailed              S9 NotEnough->           End                ->S9 s
---           ~ Terminal                  End                 End                 End
---       * BranchSt One
---       OneAccept                    {S5 One}->            ->S5 s               S1 s
---       OneDate                        S11<-               <-S11                S1 s
---       OneSuccess                    S1 One->               S0                ->S1 s
---       Goto 0                           S0                  S0                 S1 s
---     * BranchSt NotFound
 --     NoBook                           S2 s<-         <-{S2 NotFound}           S1 s
---     SellerNoBook                 S1 NotFound->             S0                ->S1 s
---     Goto 0                             S0                  S0                 S1 s
+--       SellerNoBook               S1 NotFound->             S0                ->S1 s
+--       Goto 0                           S0                  S0                 S1 s

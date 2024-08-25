@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -44,9 +45,11 @@ import TypedSession.State.Utils
 
 ------------------------
 
+newtype Index = Index Int deriving (Show, Eq, Ord, Num)
+
 addIdxXTraverse
   :: forall r bst sig m
-   . ( Has (State Int :+: State (Set Int) :+: Error (ProtocolError r bst)) sig m
+   . ( Has (State Int :+: State Index :+: State (Set Int) :+: Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      , Ord r
@@ -56,21 +59,25 @@ addIdxXTraverse =
   ( \_ -> do
       inputIdx <- get @Int
       modify @Int (+ 1)
+      Index idx <- get @Index
+      modify @Index (+ 1)
       outputInx <- get @Int
-      pure (inputIdx, outputInx)
+      pure (inputIdx, outputInx, idx)
   , const get
   , \(_, _) -> do
       inputIdx <- get @Int
       modify (Set.insert inputIdx)
       pure (inputIdx, id)
-  , \_ -> modify @Int (+ 1)
+  , \_ -> do
+      put (Index 0)
+      modify @Int (+ 1)
   , const get
   , const get
   )
 
 reRankXTraverse :: (Monad m) => IntMap Int -> XTraverse m Idx Idx r bst
 reRankXTraverse sbm =
-  ( \((a, b), _) -> pure (replaceVal sbm a, replaceVal sbm b)
+  ( \((a, b, idx), _) -> pure (replaceVal sbm a, replaceVal sbm b, idx)
   , \(xs, _) -> pure (replaceVal sbm xs)
   , \(a, _) -> pure (replaceVal sbm a, id)
   , \_ -> pure ()
@@ -80,7 +87,7 @@ reRankXTraverse sbm =
 
 addNumsXTraverse
   :: forall r bst sig m
-   . ( Has (State Int :+: Error (ProtocolError r bst)) sig m
+   . ( Has (Error (ProtocolError r bst)) sig m
      , Enum r
      , Bounded r
      , Ord r
@@ -90,27 +97,10 @@ addNumsXTraverse =
   let mkNums i =
         let sized = fromEnum (maxBound @r) + 1
          in fmap (\x -> i * sized + fromEnum x) (rRange @r)
-   in ( \((va, vb), _) -> do
-          idx <- get @Int
-          modify @Int (+ 1)
-          pure (mkNums va, mkNums vb, idx)
+   in ( \((va, vb, idx), _) -> pure (mkNums va, mkNums vb, idx)
       , \(va, _) -> pure $ mkNums va
-      , \(va, (r, ls)) -> do
-          let len = length ls
-          -- At least two branches.
-          when (len < 2) (throwError (AtLeastTwoBranches (Branch va r ls)))
-          void $ runState @(Maybe r) Nothing $ forM_ ls $ \(BranchSt _ _ prot) -> do
-            -- The first message of each branch must have the same receiver and sender.
-            case getFirstMsgInfo prot of
-              Nothing -> throwError (BranchNoMsg prot)
-              Just (from, _) -> do
-                when (from /= r) $
-                  throwError (BranchFirstMsgMustHaveTheSameSender prot)
-            -- Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.
-            let receivers = L.nub $ L.sort $ r : (fmap snd $ getAllMsgInfo prot)
-            when (receivers /= [minBound .. maxBound]) (throwError (BranchNotNotifyAllOtherReceivers prot))
-          pure (mkNums va, id)
-      , \_ -> put @Int 0
+      , \(va, _) -> pure (mkNums va, id)
+      , \_ -> pure ()
       , \(va, _) -> pure $ mkNums va
       , \va -> pure $ mkNums va
       )
@@ -271,17 +261,16 @@ piple'
   -> m (PipleResult r bst)
 piple' trace prot0 = do
   trace (TracerProtocolCreat prot0)
-  (brSet, (maxSzie, idxProt)) <-
-    runState @(Set Int) Set.empty $
-      runState @Int 0 (xtraverse addIdxXTraverse prot0)
+  (brSet, (maxSzie, (_, idxProt))) <-
+    runState @(Set Int) Set.empty
+      . runState @Int 0
+      . runState @Index (Index 100)
+      $ (xtraverse addIdxXTraverse prot0)
   trace (TracerProtocolIdx idxProt)
   trace (TracerReRank (reRank brSet maxSzie))
   idxProt1 <- xtraverse (reRankXTraverse (reRank brSet maxSzie)) idxProt
   trace (TracerProtocolIdx idxProt1)
-  prot1 <-
-    fmap snd
-      . runState @Int 100
-      $ xtraverse addNumsXTraverse idxProt1
+  prot1 <- xtraverse addNumsXTraverse idxProt1
   trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
   trace (TracerProtocolGenConst prot2)

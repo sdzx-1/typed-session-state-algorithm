@@ -156,7 +156,7 @@ type instance XTerminal Creat = ()
 
 data Idx
 
-type instance XMsg Idx = (Int, Int)
+type instance XMsg Idx = (Int, Int, Int)
 type instance XLabel Idx = Int
 type instance XBranch Idx = Int
 type instance XBranchSt Idx = ()
