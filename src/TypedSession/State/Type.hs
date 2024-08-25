@@ -127,21 +127,26 @@ xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot o
 data ProtocolError r bst
   = DefLabelMultTimes Int
   | LabelUndefined Int
-  | BranchFirstMsgMustHaveTheSameSender r
-  | UndecideStateCanNotSendMsg
-  | UndecideStateCanNotStartBranch
-  | TerminalNeedAllRoleDecide
+  | BranchFirstMsgMustHaveTheSameSender r String r
+  | UndecideStateCanNotSendMsg String
+  | UndecideStateCanNotStartBranch [BranchSt (GenConst r) r bst]
+  | TerminalNeedAllRoleDecide String
   | BranchAtLeastOneBranch
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
-    DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
-    LabelUndefined prot -> "Label Undefined\n" <> show prot
-    BranchFirstMsgMustHaveTheSameSender prot ->
-      "The first message of each branch must have the same sender.\n" <> show prot
-    UndecideStateCanNotSendMsg -> "Undecide State can't send msg!"
-    UndecideStateCanNotStartBranch -> "Undecide State can't start branch!"
-    TerminalNeedAllRoleDecide -> "Terminal need all role decide!"
+    DefLabelMultTimes msgOrLabel -> "Defining Label multiple times: " <> show msgOrLabel
+    LabelUndefined prot -> "Label Undefined: " <> show prot
+    BranchFirstMsgMustHaveTheSameSender psender msgName from ->
+      "The first message of each branch must have the same sender. Sender: "
+        <> show psender
+        <> " But Msg: "
+        <> msgName
+        <> "'s sender is "
+        <> show from
+    UndecideStateCanNotSendMsg msgName -> "Msg " <> msgName <> " error, Undecide State can't send msg!"
+    UndecideStateCanNotStartBranch brs -> "Undecide State can't start branch! " <> show brs
+    TerminalNeedAllRoleDecide msgName -> "Msg " <> msgName <> ", Terminal need all role decide!"
     BranchAtLeastOneBranch -> "Branch at least one branch!"
 
 ------------------------

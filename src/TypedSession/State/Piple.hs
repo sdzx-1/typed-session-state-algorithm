@@ -139,24 +139,24 @@ checkProtXFold
    . (Has (State (Map r CurrSt) :+: State r :+: Error (ProtocolError r bst)) sig m, Eq r, Ord r, Enum r, Bounded r)
   => XFold m (GenConst r) r bst
 checkProtXFold =
-  ( \((_, (from, to), idx), (_, _, _, _, prot)) -> do
+  ( \((_, (from, to), idx), (msgName, _, _, _, prot)) -> do
       when (idx == 0) $ do
         r1 <- get @r
         if from == r1
           then pure ()
-          else throwError @(ProtocolError r bst) (BranchFirstMsgMustHaveTheSameSender r1)
+          else throwError @(ProtocolError r bst) (BranchFirstMsgMustHaveTheSameSender r1 msgName from)
       fromCurrSt <- getRCurrSt from
-      when (fromCurrSt == Undecide) (throwError @(ProtocolError r bst) UndecideStateCanNotSendMsg)
+      when (fromCurrSt == Undecide) (throwError @(ProtocolError r bst) (UndecideStateCanNotSendMsg msgName))
       modify (Map.insert to Decide)
       case prot of
         Terminal _ -> do
           vals <- gets @(Map r CurrSt) Map.elems
-          when (any (/= Decide) vals) (throwError @(ProtocolError r bst) TerminalNeedAllRoleDecide)
+          when (any (/= Decide) vals) (throwError @(ProtocolError r bst) (TerminalNeedAllRoleDecide msgName))
         _ -> pure ()
   , \_ -> pure ()
   , \(_, (r1, ls)) -> do
       r1CurrSt <- getRCurrSt r1
-      when (r1CurrSt == Undecide) (throwError @(ProtocolError r bst) UndecideStateCanNotStartBranch)
+      when (r1CurrSt == Undecide) (throwError @(ProtocolError r bst) (UndecideStateCanNotStartBranch ls))
       for_ [r | r <- rRange, r /= r1] $ \r -> modify (Map.insert r Undecide)
       when (length ls < 1) (throwError @(ProtocolError r bst) BranchAtLeastOneBranch)
       put r1
