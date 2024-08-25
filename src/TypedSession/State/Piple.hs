@@ -29,10 +29,12 @@ import Control.Effect.Error
 import Control.Effect.Reader
 import Control.Effect.Writer
 import Control.Monad
-import Data.Foldable (Foldable (toList))
+import Data.Foldable (Foldable (toList), for_)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import qualified Data.List as L
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
@@ -113,6 +115,55 @@ toGenConstrXTraverse =
   , \_ -> pure ()
   , \(xs, i) -> pure (xs, i)
   , \xv -> pure xv
+  )
+
+data CurrSt = Decide | Undecide deriving (Show, Eq, Ord)
+
+getRCurrSt :: forall r sig m. (Has (State (Map r CurrSt)) sig m, Ord r) => r -> m CurrSt
+getRCurrSt r =
+  gets @(Map r CurrSt) (Map.lookup r) >>= \case
+    Nothing -> error "np"
+    Just v -> pure v
+
+restoreWrapper1 :: forall r sig m a. (Has (State (Map r CurrSt) :+: State r) sig m) => m a -> m a
+restoreWrapper1 m = do
+  s1 <- get @(Map r CurrSt)
+  s2 <- get @r
+  a <- m
+  put s1
+  put s2
+  pure a
+
+checkProtXFold
+  :: forall r bst sig m
+   . (Has (State (Map r CurrSt) :+: State r :+: Error (ProtocolError r bst)) sig m, Eq r, Ord r, Enum r, Bounded r)
+  => XFold m (GenConst r) r bst
+checkProtXFold =
+  ( \((_, (from, to), idx), (_, _, _, _, prot)) -> do
+      when (idx == 0) $ do
+        r1 <- get @r
+        if from == r1
+          then pure ()
+          else throwError @(ProtocolError r bst) (BranchFirstMsgMustHaveTheSameSender r1)
+      fromCurrSt <- getRCurrSt from
+      when (fromCurrSt == Undecide) (throwError @(ProtocolError r bst) UndecideStateCanNotSendMsg)
+      modify (Map.insert to Decide)
+      case prot of
+        Terminal _ -> do
+          vals <- gets @(Map r CurrSt) Map.elems
+          when (any (/= Decide) vals) (throwError @(ProtocolError r bst) TerminalNeedAllRoleDecide)
+        _ -> pure ()
+  , \_ -> pure ()
+  , \(_, (r1, ls)) -> do
+      r1CurrSt <- getRCurrSt r1
+      when (r1CurrSt == Undecide) (throwError @(ProtocolError r bst) UndecideStateCanNotStartBranch)
+      for_ [r | r <- rRange, r /= r1] $ \r -> modify (Map.insert r Undecide)
+      when (length ls < 1) (throwError @(ProtocolError r bst) BranchAtLeastOneBranch)
+      put r1
+      pure (restoreWrapper1 @r)
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
   )
 
 genConstrXFold
@@ -274,6 +325,10 @@ piple' trace prot0 = do
   trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
   trace (TracerProtocolGenConst prot2)
+  void
+    . runState @(Map r CurrSt) (Map.fromList $ zip (rRange @r) (cycle [Decide]))
+    . runState @r undefined
+    $ xfold checkProtXFold prot2
   (constraintList, _) <-
     runWriter @(Seq C.Constraint)
       . runState @(IntMap [Int]) (IntMap.empty)

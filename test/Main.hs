@@ -7,10 +7,8 @@ module Main (main) where
 import Text.RawString.QQ (r)
 import TypedSession.State.GenDoc (genGraph)
 import TypedSession.State.Parser (runProtocolParser)
-import TypedSession.State.Pattern
-import TypedSession.State.Piple (PipleResult (..), piple, pipleWithTracer)
-import TypedSession.State.Render (StrFillEnv (StrFillEnv), defaultStrFilEnv)
-import TypedSession.State.Type (Creat, Protocol)
+import TypedSession.State.Piple (pipleWithTracer)
+import TypedSession.State.Render (StrFillEnv (StrFillEnv))
 
 main :: IO ()
 main = putStrLn "Test suite not yet implemented."
@@ -164,12 +162,6 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 --       Pong                            S3<-                <-S3                S2 s
 --       Goto 0                           S0                 S1 s                S2 s
 --     Stop                         {S1 SFalse}->           ->S1 s               S2 s
---       CStop                       S2 SFalse->             End                ->S2 s
---       Terminal                        End                 End                 End
---       CStop                       S2 SFalse->             End                ->S2 s
---       Terminal                        End                 End                 End
---       CStop                       S2 SFalse->             End                ->S2 s
---       Terminal                        End                 End                 End
 --       CStop                       S2 SFalse->             End                ->S2 s
 --       Terminal                        End                 End                 End
 

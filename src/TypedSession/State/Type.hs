@@ -125,23 +125,24 @@ xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot o
 
 -- | ProtocolError
 data ProtocolError r bst
-  = AtLeastTwoBranches (Protocol Idx r bst)
-  | DefLabelMultTimes Int
+  = DefLabelMultTimes Int
   | LabelUndefined Int
-  | BranchNoMsg (Protocol Idx r bst)
-  | BranchFirstMsgMustHaveTheSameSender (Protocol Idx r bst)
-  | BranchNotNotifyAllOtherReceivers (Protocol Idx r bst)
+  | BranchFirstMsgMustHaveTheSameSender r
+  | UndecideStateCanNotSendMsg
+  | UndecideStateCanNotStartBranch
+  | TerminalNeedAllRoleDecide
+  | BranchAtLeastOneBranch
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
-    AtLeastTwoBranches prot -> "At least two branches are required\n" <> show prot
     DefLabelMultTimes msgOrLabel -> "Defining Label multiple times\n" <> show msgOrLabel
     LabelUndefined prot -> "Label Undefined\n" <> show prot
-    BranchNoMsg prot -> "Branch No Msg\n" <> show prot
     BranchFirstMsgMustHaveTheSameSender prot ->
       "The first message of each branch must have the same sender.\n" <> show prot
-    BranchNotNotifyAllOtherReceivers prot ->
-      "Each branch sender must send (directly or indirectly) a message to all other receivers to notify the state change.\n" <> show prot
+    UndecideStateCanNotSendMsg -> "Undecide State can't send msg!"
+    UndecideStateCanNotStartBranch -> "Undecide State can't start branch!"
+    TerminalNeedAllRoleDecide -> "Terminal need all role decide!"
+    BranchAtLeastOneBranch -> "Branch at least one branch!"
 
 ------------------------
 
