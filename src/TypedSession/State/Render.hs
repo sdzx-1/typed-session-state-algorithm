@@ -136,15 +136,6 @@ runRender sfe@(StrFillEnv{width, leftWidth}) xst prot =
       tell [header]
       (xfold (renderXFold sfe xst) prot)
 
-
-traceWrapper :: String -> String -> String
-traceWrapper desc st =
-  "--------------------"
-    ++ desc
-    ++ "-----------------\n"
-    ++ st
-    ++ "\n"
-
 foo :: (Ord a) => a -> a -> [Char] -> a -> [Char]
 foo from to str i =
   if
@@ -185,18 +176,3 @@ stMsgT sfe =
 
 parensWarapper :: String -> String
 parensWarapper st = "{" <> st <> "}"
-
-instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bst) where
-  show = \case
-    TracerProtocolCreat p -> traceWrapper "Creat" $ show p
-    TracerProtocolIdx p -> traceWrapper "Idx" $ show p
-    TracerReRank p -> traceWrapper "ReRank" $ show p
-    TracerProtocolAddNum p -> traceWrapper "AddNum" $ show p
-    TracerProtocolGenConst p -> traceWrapper "GenConst" $ show p
-    TracerConstraints p -> traceWrapper "Constrains" $ show p
-    TracerSubMap p -> traceWrapper "SubMap" $ show p
-    TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
-    TracerVerifyResult m -> traceWrapper "VerifyResult Map" $ show m
-    TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
-    TracerProtocolMsgT p -> traceWrapper "MsgT" $ show p
-    TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p

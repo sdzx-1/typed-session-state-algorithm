@@ -6,7 +6,7 @@ module Main (main) where
 
 import Text.RawString.QQ (r)
 import TypedSession.State.Parser (runProtocolParser)
-import TypedSession.State.Pipeline (genGraph, pipleWithTracer)
+import TypedSession.State.Pipeline (genGraph, pipeWithTracer)
 import TypedSession.State.Render (StrFillEnv (StrFillEnv))
 
 main :: IO ()
@@ -38,7 +38,7 @@ s1 =
 r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
   Left e -> e
   Right a ->
-    let (lq, res) = pipleWithTracer a
+    let (lq, res) = pipeWithTracer a
      in case res of
           Left e -> show e
           Right ppResult -> show lq <> "\n" <> genGraph (StrFillEnv 20 20) ppResult
@@ -228,7 +228,7 @@ s2 =
 r2 = case runProtocolParser @Role @BookBranchSt s2 of
   Left e -> e
   Right a ->
-    let (seqList, res) = pipleWithTracer a
+    let (seqList, res) = pipeWithTracer a
      in case res of
           Left e -> show e
           Right ppResult ->

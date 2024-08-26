@@ -172,6 +172,25 @@ data Tracer r bst
   | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
   | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
 
+traceWrapper :: String -> String -> String
+traceWrapper desc st =
+  "--------------------" ++ desc ++ "-----------------\n" ++ st ++ "\n"
+
+instance (Show r, Show bst) => Show (Tracer r bst) where
+  show = \case
+    TracerProtocolCreat p -> traceWrapper "Creat" $ show p
+    TracerProtocolIdx p -> traceWrapper "Idx" $ show p
+    TracerReRank p -> traceWrapper "ReRank" $ show p
+    TracerProtocolAddNum p -> traceWrapper "AddNum" $ show p
+    TracerProtocolGenConst p -> traceWrapper "GenConst" $ show p
+    TracerConstraints p -> traceWrapper "Constrains" $ show p
+    TracerSubMap p -> traceWrapper "SubMap" $ show p
+    TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
+    TracerVerifyResult m -> traceWrapper "VerifyResult Map" $ show m
+    TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
+    TracerProtocolMsgT p -> traceWrapper "MsgT" $ show p
+    TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p
+
 ------------------------
 
 data Creat

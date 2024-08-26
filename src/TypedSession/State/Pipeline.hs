@@ -319,7 +319,7 @@ reRank branchValSet maxSize =
       restList = [i | i <- [0 .. maxSize], i `Set.notMember` allSet]
    in IntMap.fromList $ zip (Set.toList allSet ++ restList) [0 ..]
 
-piple'
+pipe'
   :: forall r bst sig m
    . ( Has (Error (ProtocolError r bst)) sig m
      , Enum r
@@ -330,7 +330,7 @@ piple'
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
   -> m (PipleResult r bst)
-piple' trace prot0 = do
+pipe' trace prot0 = do
   trace (TracerProtocolCreat prot0)
   (brSet, (maxSzie, (_, idxProt))) <-
     runState @(Set Int) Set.empty
@@ -373,17 +373,17 @@ piple' trace prot0 = do
   trace (TracerProtocolMsgT1 prot5)
   pure (PipleResult prot4 prot5 dnys stBound)
 
-piple
+pipe
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
   -> Either
       (ProtocolError r bst)
       (PipleResult r bst)
-piple protocol =
-  run $ runError @(ProtocolError r bst) $ (piple' (const (pure ())) protocol)
+pipe protocol =
+  run $ runError @(ProtocolError r bst) $ (pipe' (const (pure ())) protocol)
 
-pipleWithTracer
+pipeWithTracer
   :: forall r bst
    . (Enum r, Bounded r, Eq r, Ord r)
   => Protocol Creat r bst
@@ -392,11 +392,11 @@ pipleWithTracer
         (ProtocolError r bst)
         (PipleResult r bst)
      )
-pipleWithTracer protocol =
+pipeWithTracer protocol =
   run
     . runWriter @(Seq (Tracer r bst))
     . runError @(ProtocolError r bst)
-    $ (piple' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
+    $ (pipe' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
 
 genDocXFold
   :: forall r bst ann sig m
