@@ -17,11 +17,7 @@ import Control.Carrier.Writer.Strict (runWriter)
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad (when)
-import Data.IntMap (IntMap)
 import qualified Data.List as L
-import Data.Sequence (Seq)
-import Data.Set (Set)
-import qualified TypedSession.State.Constraint as C
 import TypedSession.State.Type
 import TypedSession.State.Utils
 
@@ -140,18 +136,6 @@ runRender sfe@(StrFillEnv{width, leftWidth}) xst prot =
       tell [header]
       (xfold (renderXFold sfe xst) prot)
 
-data Tracer r bst
-  = TracerProtocolCreat (Protocol Creat r bst)
-  | TracerProtocolIdx (Protocol Idx r bst)
-  | TracerReRank (IntMap Int)
-  | TracerProtocolAddNum (Protocol AddNums r bst)
-  | TracerProtocolGenConst (Protocol (GenConst r) r bst)
-  | TracerConstraints (Seq C.Constraint)
-  | TracerSubMap C.SubMap
-  | TracerProtocolGenConstN (Protocol (GenConst r) r bst)
-  | TracerCollectBranchDynVal (Set Int)
-  | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
-  | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -212,6 +196,7 @@ instance (Show r, Show bst, Enum r, Bounded r, Eq r, Ord r) => Show (Tracer r bs
     TracerConstraints p -> traceWrapper "Constrains" $ show p
     TracerSubMap p -> traceWrapper "SubMap" $ show p
     TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
+    TracerVerifyResult m -> traceWrapper "VerifyResult Map" $ show m
     TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
     TracerProtocolMsgT p -> traceWrapper "MsgT" $ show p
     TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p

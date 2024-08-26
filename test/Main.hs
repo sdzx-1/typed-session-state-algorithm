@@ -124,6 +124,8 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 --   Msg <(([1,1,2],[2,-1,2]),(Client,Server),0)> Stop [] Client Server
 --   Msg <(([2,-1,2],[-1,-1,-1]),(Client,Counter),1)> CStop [] Client Counter
 --   Terminal [-1,-1,-1]
+-- ,--------------------VerifyResult Map-----------------
+-- fromList [(1,(Client,Server)),(2,(Client,Counter)),(3,(Server,Client))]
 -- ,--------------------CollectBranchDynVal-----------------
 -- fromList [1,2]
 -- ,--------------------MsgT-----------------
@@ -450,6 +452,8 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <(([2,2,1],[1,0,1]),(Seller,Buyer),0)> NoBook [] Seller Buyer
 --   Msg <(([1,0,1],[0,0,1]),(Buyer,Buyer2),1)> SellerNoBook [] Buyer Buyer2
 --   Goto ([0,0,1],0) 0
+-- ,--------------------VerifyResult Map-----------------
+-- fromList [(0,(Buyer,Seller)),(1,(Buyer,Buyer2)),(2,(Seller,Buyer)),(5,(Buyer,Seller)),(6,(Buyer2,Buyer)),(9,(Buyer,Buyer2)),(10,(Seller,Buyer)),(11,(Seller,Buyer))]
 -- ,--------------------CollectBranchDynVal-----------------
 -- fromList [1,2,5,6,9]
 -- ,--------------------MsgT-----------------

@@ -17,6 +17,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module TypedSession.State.Pipeline where
 
@@ -123,7 +124,7 @@ data CurrSt = Decide | Undecide deriving (Show, Eq, Ord)
 getRCurrSt :: forall r sig m. (Has (State (Map r CurrSt)) sig m, Ord r) => r -> m CurrSt
 getRCurrSt r =
   gets @(Map r CurrSt) (Map.lookup r) >>= \case
-    Nothing -> error "np"
+    Nothing -> error internalError
     Just v -> pure v
 
 restoreWrapper1 :: forall r sig m a. (Has (State (Map r CurrSt) :+: State r) sig m) => m a -> m a
@@ -213,6 +214,24 @@ replXTraverse sbm =
   , \_ -> pure ()
   , \((xs, i), _) -> pure (replaceList sbm xs, i)
   , \xs -> pure (replaceList sbm xs)
+  )
+
+verifyProtXFold
+  :: forall r bst sig m
+   . (Has (State (IntMap (r, r)) :+: Error (ProtocolError r bst)) sig m, Enum r, Eq r)
+  => XFold m (GenConst r) r bst
+verifyProtXFold =
+  ( \(((is, _), ft@(from, _to), _), _) -> do
+      let from' = is !! fromEnum from
+      res <- gets @(IntMap (r, r)) (IntMap.lookup from')
+      case res of
+        Nothing -> modify (IntMap.insert from' ft)
+        Just ft1 -> when (ft1 /= ft) (throwError @(ProtocolError r bst) AStateOnlyBeUsedForTheSamePair)
+  , \_ -> pure ()
+  , \_ -> pure id
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
   )
 
 collectBranchDynValXFold :: (Has (State (Set Int)) sig m, Enum r) => XFold m (GenConst r) r bst
@@ -328,24 +347,26 @@ piple' trace prot0 = do
   trace (TracerProtocolGenConst prot2)
   void
     . runState @(Map r CurrSt) (Map.fromList $ zip (rRange @r) (cycle [Decide]))
-    . runState @r undefined
+    . runState @r (error internalError)
     $ xfold checkProtXFold prot2
   (constraintList, _) <-
     runWriter @(Seq C.Constraint)
       . runState @(IntMap [Int]) (IntMap.empty)
-      . runState @[Int] undefined
+      . runState @[Int] (error internalError)
       $ xfold genConstrXFold prot2
   trace (TracerConstraints constraintList)
   let (sbm, stBound) = compressSubMap $ C.constrToSubMap $ toList constraintList
   trace (TracerSubMap sbm)
   prot3 <- xtraverse (replXTraverse sbm) prot2
   trace (TracerProtocolGenConstN prot3)
+  verifyResult <- fst <$> runState @(IntMap (r, r)) (IntMap.empty) (xfold verifyProtXFold prot3)
+  trace (TracerVerifyResult verifyResult)
   dnys <- fst <$> runState @((Set Int)) (Set.empty) (xfold collectBranchDynValXFold prot3)
   trace (TracerCollectBranchDynVal dnys)
   prot4 <-
     fmap snd
       . runReader @(Set Int) dnys
-      . runState @bst undefined
+      . runState @bst (error internalError)
       $ (xtraverse genMsgTXTraverse prot3)
   trace (TracerProtocolMsgT prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4

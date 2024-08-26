@@ -17,9 +17,13 @@
 module TypedSession.State.Type where
 
 import Control.Monad
+import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
+import Data.Sequence (Seq)
+import Data.Set (Set)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
+import qualified TypedSession.State.Constraint as C
 
 type family XMsg eta
 type family XLabel eta
@@ -132,6 +136,7 @@ data ProtocolError r bst
   | UndecideStateCanNotStartBranch [BranchSt (GenConst r) r bst]
   | TerminalNeedAllRoleDecide String
   | BranchAtLeastOneBranch
+  | AStateOnlyBeUsedForTheSamePair
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
@@ -148,6 +153,24 @@ instance (Show r, Show bst) => Show (ProtocolError r bst) where
     UndecideStateCanNotStartBranch brs -> "Undecide State can't start branch! " <> show brs
     TerminalNeedAllRoleDecide msgName -> "Msg " <> msgName <> ", Terminal need all role decide!"
     BranchAtLeastOneBranch -> "Branch at least one branch!"
+    AStateOnlyBeUsedForTheSamePair -> "A state can only be used for the same pair of communicators." ++ internalError
+
+internalError :: String
+internalError = "Internal error, please report: https://github.com/sdzx-1/typed-session/issues"
+
+data Tracer r bst
+  = TracerProtocolCreat (Protocol Creat r bst)
+  | TracerProtocolIdx (Protocol Idx r bst)
+  | TracerReRank (IntMap Int)
+  | TracerProtocolAddNum (Protocol AddNums r bst)
+  | TracerProtocolGenConst (Protocol (GenConst r) r bst)
+  | TracerConstraints (Seq C.Constraint)
+  | TracerSubMap C.SubMap
+  | TracerProtocolGenConstN (Protocol (GenConst r) r bst)
+  | TracerVerifyResult (IntMap (r, r))
+  | TracerCollectBranchDynVal (Set Int)
+  | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
+  | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
 
 ------------------------
 
