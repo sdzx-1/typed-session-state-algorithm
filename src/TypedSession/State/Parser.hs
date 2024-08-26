@@ -12,8 +12,7 @@ import qualified Data.List as L
 import Text.Megaparsec hiding (Label, label)
 import Text.Megaparsec.Char (char, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import TypedSession.State.Pattern
-import TypedSession.State.Type (BranchSt, Creat, MsgOrLabel, Protocol)
+import TypedSession.State.Type
 
 {-
 
@@ -105,24 +104,24 @@ parseMsg = dbg "Msg" $ do
   args <- brackets (constrOrType `sepBy` comma)
   from <- mkParserA @r
   to <- mkParserA @r
-  pure $ Msg constr args from to
+  pure $ Msg () constr args from to
 
 parseLabel :: (Show r) => Parser (MsgOrLabel Creat r)
 parseLabel = dbg "Label" $ do
   label
   i <- fromIntegral <$> integer
-  pure $ Label i
+  pure $ Label () i
 
 parseGoto :: (Show bst, Show r) => Parser (Protocol Creat r bst)
 parseGoto = dbg "Goto" $ do
   goto
   i <- fromIntegral <$> integer
-  pure $ Goto i
+  pure $ Goto () i
 
 parseTerminal :: (Show bst, Show r) => Parser (Protocol Creat r bst)
 parseTerminal = dbg "Terminal" $ do
   terminal
-  pure $ Terminal
+  pure $ Terminal ()
 
 parseBranchSt
   :: forall bst r
@@ -132,7 +131,7 @@ parseBranchSt = dbg "BranchSt" $ do
   branchSt
   bst <- mkParserA @bst
   prot <- parseProtocol @r @bst
-  pure (BranchSt bst prot)
+  pure (BranchSt () bst prot)
 
 parseBranch
   :: forall r bst
@@ -142,7 +141,7 @@ parseBranch = dbg "Branch" $ do
   r1 <- mkParserA @r
   braces $ do
     branchSts <- some (parseBranchSt @bst @r)
-    pure (Branch r1 branchSts)
+    pure (Branch () r1 branchSts)
 
 parseMsgOrLabel
   :: forall r bst

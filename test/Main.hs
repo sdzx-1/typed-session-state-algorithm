@@ -5,9 +5,8 @@
 module Main (main) where
 
 import Text.RawString.QQ (r)
-import TypedSession.State.GenDoc (genGraph)
 import TypedSession.State.Parser (runProtocolParser)
-import TypedSession.State.Piple (pipleWithTracer)
+import TypedSession.State.Pipeline (genGraph, pipleWithTracer)
 import TypedSession.State.Render (StrFillEnv (StrFillEnv))
 
 main :: IO ()

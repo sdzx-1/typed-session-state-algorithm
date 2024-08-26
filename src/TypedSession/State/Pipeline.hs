@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
@@ -17,7 +18,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module TypedSession.State.Piple where
+module TypedSession.State.Pipeline where
 
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)
@@ -409,3 +410,6 @@ genDocXFold rName protName =
 genDoc :: forall r bst ann. (Show r, Show bst) => String -> String -> Protocol (MsgT1 r bst) r bst -> [Doc ann]
 genDoc rName protName prot =
   fst $ run $ runWriter @[Doc ann] (xfold (genDocXFold @r @bst @ann rName protName) prot)
+
+genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => StrFillEnv -> PipleResult r bst -> String
+genGraph sfe PipleResult{msgT} = runRender sfe (stMsgT sfe) msgT

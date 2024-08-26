@@ -60,9 +60,7 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  TypedSession.State.Constraint
-                    , TypedSession.State.Piple
-                    , TypedSession.State.Pattern
-                    , TypedSession.State.GenDoc
+                    , TypedSession.State.Pipeline
                     , TypedSession.State.Type
                     , TypedSession.State.Utils
                     , TypedSession.State.Render
