@@ -398,39 +398,5 @@ pipeWithTracer protocol =
     . runError @(ProtocolError r bst)
     $ (pipe' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
 
-genDocXFold
-  :: forall r bst ann sig m
-   . ( Has (Writer [Doc ann]) sig m
-     , Show r
-     , Show bst
-     )
-  => String -> String -> XFold m (MsgT1 r bst) r bst
-genDocXFold rName protName =
-  ( \( ((sendStart, sendEnd, recEnd), (from, to), _)
-      , (cons, args, _, _, _)
-      ) -> do
-        tell @[Doc ann]
-          [ pretty cons
-              <+> "::"
-              <+> pretty (L.intercalate "->" args)
-              <+> (if null args then emptyDoc else "->")
-              <+> "Msg"
-              <+> pretty rName
-              <+> pretty (protName <> "St")
-              <+> parens (pretty $ show sendStart)
-              <+> (pretty $ '\'' : show (from, sendEnd))
-              <+> (pretty $ '\'' : show (to, recEnd))
-          ]
-  , \_ -> pure ()
-  , \_ -> pure (id)
-  , \_ -> pure ()
-  , \_ -> pure ()
-  , \_ -> pure ()
-  )
-
-genDoc :: forall r bst ann. (Show r, Show bst) => String -> String -> Protocol (MsgT1 r bst) r bst -> [Doc ann]
-genDoc rName protName prot =
-  fst $ run $ runWriter @[Doc ann] (xfold (genDocXFold @r @bst @ann rName protName) prot)
-
 genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => StrFillEnv -> PipleResult r bst -> String
 genGraph sfe PipleResult{msgT} = runRender sfe (stMsgT sfe) msgT
