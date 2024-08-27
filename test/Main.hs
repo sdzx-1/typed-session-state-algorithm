@@ -6,8 +6,8 @@ module Main (main) where
 
 import Text.RawString.QQ (r)
 import TypedSession.State.Parser (runProtocolParser)
-import TypedSession.State.Pipeline (genGraph, pipeWithTracer)
-import TypedSession.State.Render (StrFillEnv (StrFillEnv))
+import TypedSession.State.Pipeline (PipeResult (..), genGraph, pipeWithTracer)
+import TypedSession.State.Render
 
 main :: IO ()
 main = putStrLn "Test suite not yet implemented."
@@ -41,7 +41,7 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
     let (lq, res) = pipeWithTracer a
      in case res of
           Left e -> show e
-          Right ppResult -> show lq <> "\n" <> genGraph (StrFillEnv 20 20) ppResult
+          Right ppResult -> show lq <> "\n" <> genGraph ppResult
 
 -- >>> error r1
 -- fromList [--------------------Creat-----------------
@@ -155,16 +155,16 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 --   Msg <((S2 SFalse,End,End),(Client,Counter),1)> CStop [] Client Counter
 --   Terminal [End,End,End]
 -- ]
--- -------------------------------------Client--------------Server-------------Counter
--- LABEL 0                                S0                 S1 s                S2 s
---   [Branch Client]                      S0                 S1 s                S2 s
---     AddOne                        {S2 STrue}->            S1 s               ->S2 s
---       Ping                         S1 STrue->            ->S1 s               S2 s
---       Pong                            S3<-                <-S3                S2 s
---       Goto 0                           S0                 S1 s                S2 s
---     Stop                         {S1 SFalse}->           ->S1 s               S2 s
---       CStop                       S2 SFalse->             End                ->S2 s
---       Terminal                        End                 End                 End
+-- ---------------------Client----------Server----------Counter---------
+-- Label 0              S0              S1 s            S2 s            
+--    [Branch Client]   S0              S1 s            S2 s            
+--    AddOne            {S2 STrue} ->   S1 s            -> S2 s         
+--      Ping            S1 STrue ->     -> S1 s         S2 s            
+--      Pong            S3 <-           <- S3           S2 s            
+--      Goto 0          S0              S1 s            S2 s            
+--    Stop              {S1 SFalse} ->  -> S1 s         S2 s            
+--      CStop           S2 SFalse ->    End             -> S2 s         
+--      Terminal        End             End             End             
 
 data Role
   = Buyer
@@ -231,9 +231,9 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
     let (seqList, res) = pipeWithTracer a
      in case res of
           Left e -> show e
-          Right ppResult ->
+          Right PipeResult{msgT} ->
             let st = show seqList
-             in st <> "\n" <> genGraph (StrFillEnv 20 20) ppResult
+             in st <> "\n" <> runRender msgT
 
 -- >>> error r2
 -- fromList [--------------------Creat-----------------
@@ -527,30 +527,30 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 --   Msg <((S1 NotFound,S0,S1 s),(Buyer,Buyer2),1)> SellerNoBook [] Buyer Buyer2
 --   Goto ([S0,S0,S1 s],0) 0
 -- ]
--- -------------------------------------Buyer---------------Seller--------------Buyer2
--- LABEL 0                                S0                  S0                 S1 s
---   Title                               S0->                ->S0                S1 s
---   [Branch Seller]                     S2 s                 S3                 S1 s
---     Price                            S2 s<-           <-{S2 Found}            S1 s
---       [Branch Buyer]                   S4                 S5 s                S1 s
---         PriceToBuyer2              {S1 Two}->             S5 s               ->S1 s
---           [Branch Buyer2]             S6 s                S5 s                 S7
---             NotSupport1              S6 s<-               S5 s         <-{S6 NotSupport}
---               TwoNotBuy         S5 NotSupport->          ->S5 s               S1 s
---               Goto 0                   S0                  S0                 S1 s
---             SupportVal               S6 s<-               S5 s           <-{S6 Support}
---               [Branch Buyer]           S8                 S5 s                S9 s
---                 TwoAccept        {S5 Enough}->           ->S5 s               S9 s
---                   TwoDate            S10<-               <-S10                S9 s
---                   TwoSuccess      S9 Enough->              S0                ->S9 s
---                   Goto 0               S0                  S0                 S1 s
---                 TwoNotBuy1      {S5 NotEnough}->         ->S5 s               S9 s
---                   TwoFailed      S9 NotEnough->           End                ->S9 s
---                   Terminal            End                 End                 End
---         OneAccept                  {S5 One}->            ->S5 s               S1 s
---           OneDate                    S11<-               <-S11                S1 s
---           OneSuccess                S1 One->               S0                ->S1 s
---           Goto 0                       S0                  S0                 S1 s
---     NoBook                           S2 s<-         <-{S2 NotFound}           S1 s
---       SellerNoBook               S1 NotFound->             S0                ->S1 s
---       Goto 0                           S0                  S0                 S1 s
+-- --------------------------Buyer---------------Seller--------------Buyer2--------------
+-- Label 0                   S0                  S0                  S1 s                
+--    Title                  S0 ->               -> S0               S1 s                
+--    [Branch Seller]        S2 s                S3                  S1 s                
+--    Price                  S2 s <-             <- {S2 Found}       S1 s                
+--      [Branch Buyer]       S4                  S5 s                S1 s                
+--      PriceToBuyer2        {S1 Two} ->         S5 s                -> S1 s             
+--        [Branch Buyer2]    S6 s                S5 s                S7                  
+--        NotSupport1        S6 s <-             S5 s                <- {S6 NotSupport}  
+--          TwoNotBuy        S5 NotSupport ->    -> S5 s             S1 s                
+--          Goto 0           S0                  S0                  S1 s                
+--        SupportVal         S6 s <-             S5 s                <- {S6 Support}     
+--          [Branch Buyer]   S8                  S5 s                S9 s                
+--          TwoAccept        {S5 Enough} ->      -> S5 s             S9 s                
+--            TwoDate        S10 <-              <- S10              S9 s                
+--            TwoSuccess     S9 Enough ->        S0                  -> S9 s             
+--            Goto 0         S0                  S0                  S1 s                
+--          TwoNotBuy1       {S5 NotEnough} ->   -> S5 s             S9 s                
+--            TwoFailed      S9 NotEnough ->     End                 -> S9 s             
+--            Terminal       End                 End                 End                 
+--      OneAccept            {S5 One} ->         -> S5 s             S1 s                
+--        OneDate            S11 <-              <- S11              S1 s                
+--        OneSuccess         S1 One ->           S0                  -> S1 s             
+--        Goto 0             S0                  S0                  S1 s                
+--    NoBook                 S2 s <-             <- {S2 NotFound}    S1 s                
+--      SellerNoBook         S1 NotFound ->      S0                  -> S1 s             
+--      Goto 0               S0                  S0                  S1 s                

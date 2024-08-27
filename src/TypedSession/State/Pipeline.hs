@@ -34,20 +34,16 @@ import Control.Monad
 import Data.Foldable (Foldable (toList), for_)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Prettyprinter
 import qualified TypedSession.State.Constraint as C
 import TypedSession.State.Render
 import TypedSession.State.Type
 import TypedSession.State.Utils
-
-------------------------
 
 newtype Index = Index Int deriving (Show, Eq, Ord, Num)
 
@@ -306,7 +302,7 @@ genMsgT1XTraverse =
   , \a -> pure a
   )
 
-data PipleResult r bst = PipleResult
+data PipeResult r bst = PipeResult
   { msgT :: Protocol (MsgT r bst) r bst
   , msgT1 :: Protocol (MsgT1 r bst) r bst
   , dnySet :: Set Int
@@ -329,7 +325,7 @@ pipe'
      )
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
-  -> m (PipleResult r bst)
+  -> m (PipeResult r bst)
 pipe' trace prot0 = do
   trace (TracerProtocolCreat prot0)
   (brSet, (maxSzie, (_, idxProt))) <-
@@ -371,7 +367,7 @@ pipe' trace prot0 = do
   trace (TracerProtocolMsgT prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4
   trace (TracerProtocolMsgT1 prot5)
-  pure (PipleResult prot4 prot5 dnys stBound)
+  pure (PipeResult prot4 prot5 dnys stBound)
 
 pipe
   :: forall r bst
@@ -379,7 +375,7 @@ pipe
   => Protocol Creat r bst
   -> Either
       (ProtocolError r bst)
-      (PipleResult r bst)
+      (PipeResult r bst)
 pipe protocol =
   run $ runError @(ProtocolError r bst) $ (pipe' (const (pure ())) protocol)
 
@@ -390,7 +386,7 @@ pipeWithTracer
   -> ( Seq (Tracer r bst)
      , Either
         (ProtocolError r bst)
-        (PipleResult r bst)
+        (PipeResult r bst)
      )
 pipeWithTracer protocol =
   run
@@ -398,5 +394,5 @@ pipeWithTracer protocol =
     . runError @(ProtocolError r bst)
     $ (pipe' (\w -> tell @(Seq (Tracer r bst)) (Seq.singleton w)) protocol)
 
-genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => StrFillEnv -> PipleResult r bst -> String
-genGraph sfe PipleResult{msgT} = runRender sfe (stMsgT sfe) msgT
+genGraph :: (Enum r, Bounded r, Show bst, Ord r, Show r) => PipeResult r bst -> String
+genGraph PipeResult{msgT} = runRender msgT

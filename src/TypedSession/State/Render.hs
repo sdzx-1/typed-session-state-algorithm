@@ -1,178 +1,163 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
 module TypedSession.State.Render where
 
 import Control.Algebra ((:+:))
+import Control.Carrier.Reader (runReader)
 import Control.Carrier.State.Strict (runState)
 import Control.Carrier.Writer.Strict (runWriter)
+import Control.Effect.Reader
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad (when)
-import qualified Data.List as L
+import Data.Semigroup (Max (..))
+import Data.Traversable (for)
 import TypedSession.State.Type
 import TypedSession.State.Utils
 
-data StringFill
-  = CenterFill Int Char String
-  | LeftAlign Int Char String
-  deriving (Show)
+data RenderProt
 
-runCenterFill :: String -> StringFill -> String
-runCenterFill startSt (CenterFill centerPoint c st) =
-  let stlen = length st
-      hlen = stlen `div` 2
-      rplen = (centerPoint - length startSt) - if odd stlen then hlen + 1 else hlen
-      rpSt = replicate rplen c
-   in startSt ++ rpSt ++ st
-runCenterFill startSt v@(LeftAlign leftAlignPoint c st) =
-  if leftAlignPoint < length startSt
-    then error $ "np: " ++ startSt ++ " " ++ show v
-    else
-      let repLen = leftAlignPoint - length startSt - 1
-          fillSt = replicate repLen c
-       in startSt ++ fillSt ++ st
-
-getPoint :: StringFill -> Int
-getPoint = \case
-  CenterFill cp _ _ -> cp
-  LeftAlign lp _ _ -> lp
-
-runCenterFills :: [StringFill] -> String
-runCenterFills ls =
-  let ls' = L.sortOn getPoint ls
-   in foldl' runCenterFill "" ls'
-
--- width :: Int
--- width = 30
-
--- leftWidth :: Int
--- leftWidth = 20
-
-data StrFillEnv = StrFillEnv
-  { width :: Int
-  , leftWidth :: Int
-  }
-  deriving (Show)
-
-defaultStrFilEnv :: StrFillEnv
-defaultStrFilEnv = StrFillEnv 30 20
-
-reSt :: StrFillEnv -> String -> String
-reSt StrFillEnv{width} st =
-  let st' = words st
-   in case st' of
-        [] -> error "np"
-        (x : _) ->
-          let lv = width - 6
-           in if length x >= lv
-                then take (lv - 2) x <> ".."
-                else x
-
---------------------------------------------
-type XStringFill eta r bst =
-  ( XMsg eta -> ([StringFill], Bool)
-  , XLabel eta -> [StringFill]
-  , XBranch eta -> [StringFill]
-  , XBranchSt eta -> [StringFill]
-  , XGoto eta -> [StringFill]
-  , XTerminal eta -> [StringFill]
-  )
-
-renderXFold
-  :: forall r eta bst sig m
-   . ( Has (Writer [[StringFill]] :+: State Int) sig m
-     , ForallX Show eta
-     , Enum r
-     , Bounded r
-     , Show r
-     , Show bst
-     )
-  => StrFillEnv -> XStringFill eta r bst -> XFold m eta r bst
-renderXFold sfe (xmsg, xlabel, xbranch, _xbranchst, xgoto, xterminal) =
-  ( \(xv, (con, _, _, _, _)) -> do
-      indentVal <- get @Int
-      let va = [LeftAlign (indentVal * 2 + 3) ' ' (reSt sfe con)]
-          (xv', isFirst) = xmsg xv
-      when isFirst (modify @Int (+ 1))
-      tell [va ++ xv']
-  , \(xv, i) -> tell [[LeftAlign 1 ' ' ("LABEL " ++ show i)] ++ xlabel xv]
-  , \(xv, (r, _)) -> do
-      indentVal <- get @Int
-      modify @Int (+ 1)
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("[Branch " ++ show r ++ "]")] ++ xbranch xv]
-      pure (restoreWrapper @Int)
-  , \(_, (_, _)) -> pure ()
-  , \(xv, i) -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' ("Goto " ++ show i)] ++ xgoto xv]
-  , \xv -> do
-      indentVal <- get @Int
-      tell [[LeftAlign (indentVal * 2 + 3) ' ' "Terminal"] ++ xterminal xv]
-  )
-
-runRender
-  :: forall r eta bst
-   . (ForallX Show eta, Show bst, Enum r, Bounded r, Show r)
-  => StrFillEnv -> XStringFill eta r bst -> Protocol eta r bst -> String
-runRender sfe@(StrFillEnv{width, leftWidth}) xst prot =
-  unlines
-    . fmap runCenterFills
-    . fst
-    . run
-    . runWriter @[[StringFill]]
-    . runState @Int 0
-    $ do
-      let header =
-            [CenterFill ((fromEnum r + 1) * width + leftWidth) '-' (show r) | r <- rRange @r]
-      tell [header]
-      (xfold (renderXFold sfe xst) prot)
-
-foo :: (Ord a) => a -> a -> [Char] -> a -> [Char]
-foo from to str i =
-  if
-    | i == from ->
-        if from > to
-          then "<-" ++ str
-          else str ++ "->"
-    | i == to ->
-        if from > to
-          then str ++ "<-"
-          else "->" ++ str
-    | otherwise -> str
-
-rtops :: (Enum r) => StrFillEnv -> r -> Int
-rtops StrFillEnv{width, leftWidth} = ((+ leftWidth) . (width *) . (+ 1) . fromEnum)
-
-rRange :: forall r. (Enum r, Bounded r) => [r]
-rRange = [minBound @r .. maxBound]
-
-too :: forall r a. (Show a, Enum r, Bounded r) => StrFillEnv -> [a] -> [StringFill]
-too sfe xs = [CenterFill ps ' ' (show v) | (v, ps) <- zip xs $ fmap (rtops sfe) (rRange @r)]
-
-stMsgT :: forall r bst. (Show bst, Ord r, Enum r, Bounded r) => StrFillEnv -> XStringFill (MsgT r bst) r bst
-stMsgT sfe =
-  let
-   in ( \(ls, (from, to), idx) ->
-          ( [ CenterFill ps ' ' $ foo from to ((if (i, idx) == (from, 0) then parensWarapper else id) $ show v) i
-            | (i, (ps, v)) <- zip (rRange @r) $ zip (fmap (rtops sfe) (rRange @r)) ls
-            ]
-          , idx == 0
-          )
-      , \(xs, _) -> too @r sfe xs
-      , \xs -> too @r sfe xs
-      , \_ -> []
-      , \(xs, _) -> too @r sfe xs
-      , \xs -> too @r sfe xs
-      )
+type instance XMsg RenderProt = (String, [String])
+type instance XLabel RenderProt = (String, [String])
+type instance XBranch RenderProt = (String, [String])
+type instance XBranchSt RenderProt = ()
+type instance XGoto RenderProt = (String, [String])
+type instance XTerminal RenderProt = (String, [String])
 
 parensWarapper :: String -> String
 parensWarapper st = "{" <> st <> "}"
+
+newtype LV = LV Int
+  deriving (Show, Eq, Ord, Num, Bounded)
+
+newtype RV = RV Int
+  deriving (Show, Eq, Ord, Num, Bounded)
+
+mkLeftStr :: (Has (State Int :+: Writer (Max LV)) sig m) => String -> m String
+mkLeftStr str = do
+  indent <- get @Int
+  let str' = replicate (indent * 2 + 3) ' ' <> str
+  tell (Max $ LV $ length str')
+  pure str'
+
+render1XTraverse
+  :: forall r bst sig m
+   . ( Has (State Int :+: Writer (Max LV) :+: Writer (Max RV)) sig m
+     , Show bst
+     , Enum r
+     , Bounded r
+     , Eq r
+     , Ord r
+     , Show r
+     )
+  => XTraverse m (MsgT r bst) RenderProt r bst
+render1XTraverse =
+  ( \((ts, (from, to), idx), (constr, _, _, _, _)) -> do
+      nst <- mkLeftStr constr
+      when (idx == 0) (modify @Int (+ 1))
+      ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
+        let sht =
+              if
+                | idx == 0 && r == from -> parensWarapper $ show t
+                | otherwise -> show t
+            sht' =
+              if
+                | r == from ->
+                    if
+                      | from > to -> "<- " <> sht
+                      | otherwise -> sht <> " ->"
+                | r == to ->
+                    if
+                      | from > to -> sht <> " <-"
+                      | otherwise -> "-> " <> sht
+                | otherwise -> sht
+        tell $ Max $ RV (length sht')
+        pure sht'
+      pure (nst, ts')
+  , \((ts, i), _) -> pure ("Label " <> show i, map show ts)
+  , \(ts, (r, _)) -> do
+      nst <- mkLeftStr $ "[Branch " <> show r <> "]"
+      pure ((nst, map show ts), restoreWrapper @Int)
+  , \_ -> pure ()
+  , \((ts, i), _) -> do
+      nst <- mkLeftStr $ "Goto " <> show i
+      pure (nst, map show ts)
+  , \ts -> do
+      nst <- mkLeftStr "Terminal"
+      pure (nst, map show ts)
+  )
+
+fillStr :: Char -> Int -> String -> String
+fillStr c i st =
+  let len = length st
+   in case compare len i of
+        EQ -> st
+        LT -> st <> replicate (i - len) c
+        GT -> error "np"
+
+mkLine
+  :: forall r sig m
+   . ( Has (Reader (LV, RV) :+: Writer [String]) sig m
+     , Enum r
+     , Bounded r
+     )
+  => (String, [String]) -> m ()
+mkLine (ls, rs) = do
+  (LV maxLv, RV maxRv) <- ask
+  let
+    leftMaxPos = maxLv + 3
+    rightMaxPos = maxRv + 2
+  tell [fillStr ' ' leftMaxPos ls <> concatMap (fillStr ' ' rightMaxPos) rs]
+
+render2XTraverse
+  :: forall r bst sig m
+   . ( Has (Reader (LV, RV) :+: Writer [String]) sig m
+     , Enum r
+     , Bounded r
+     )
+  => XFold m RenderProt r bst
+render2XTraverse =
+  ( \(vs, _) -> mkLine @r vs
+  , \(vs, _) -> mkLine @r vs
+  , \(vs, _) -> do
+      mkLine @r vs
+      pure id
+  , \_ -> pure ()
+  , \(vs, _) -> mkLine @r vs
+  , \vs -> mkLine @r vs
+  )
+
+runRender1
+  :: (Enum r, Bounded r, Ord r, Show bst, Show r)
+  => Protocol (MsgT r bst) r bst
+  -> (Max LV, (Max RV, (Int, Protocol RenderProt r bst)))
+runRender1 prot =
+  run
+    . runWriter @(Max LV)
+    . runWriter @(Max RV)
+    . runState @Int 0
+    $ xtraverse render1XTraverse prot
+
+runRender :: forall r bst. (Enum r, Bounded r, Ord r, Show bst, Show r) => Protocol (MsgT r bst) r bst -> String
+runRender prot =
+  let (Max lv@(LV maxLv), (Max rv@(RV maxRv), (_, prot1))) = runRender1 prot
+      header = replicate (maxLv + 3) '-' <> concatMap (fillStr '-' (maxRv + 2)) [show r | r <- rRange @r]
+   in unlines
+        . fst
+        . run
+        . runReader (lv, rv)
+        . runWriter @[String]
+        $ do
+          tell [header]
+          xfold render2XTraverse prot1

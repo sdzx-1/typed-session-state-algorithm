@@ -75,3 +75,6 @@ replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
 
 replaceVal :: IntMap Int -> Int -> Int
 replaceVal sbm k = fromMaybe (error internalError) $ IntMap.lookup k sbm
+
+rRange :: forall r. (Enum r, Bounded r) => [r]
+rRange = [minBound @r .. maxBound]
