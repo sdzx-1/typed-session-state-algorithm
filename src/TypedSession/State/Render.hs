@@ -21,11 +21,11 @@ import Control.Effect.Reader
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad (when)
+import qualified Data.List as L
 import Data.Semigroup (Max (..))
 import Data.Traversable (for)
 import TypedSession.State.Type
 import TypedSession.State.Utils
-import qualified Data.List as L
 
 data RenderProt
 
@@ -66,30 +66,30 @@ render1XTraverse
 render1XTraverse =
   ( \((ts, (from, to), idx), (constr, args, _, _, _)) -> do
       nst <- mkLeftStr (constr <> " [" <> L.intercalate "," args <> "]")
-      when (idx == 0) (modify @Int (+ 1))
       ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
+        indent <- get @Int
         let sht =
               if
-                | idx == 0 && r == from -> parensWarapper $ show t
+                | idx == 0 && r == from -> replicate ((indent) * 2 + 2) ' ' <> (parensWarapper $ show t)
                 | otherwise -> show t
             sht' =
               if
-                | r == from ->
-                    if
-                      | from > to -> "<- " <> sht
-                      | otherwise -> sht <> " ->"
-                | r == to ->
-                    if
-                      | from > to -> sht <> " <-"
-                      | otherwise -> "-> " <> sht
+                | r == from -> sht <> " ->"
+                | r == to -> sht <> " <-"
                 | otherwise -> sht
         tell $ Max $ RV (length sht')
         pure sht'
+      when (idx == 0) (modify @Int (+ 1))
       pure (nst, ts')
   , \((ts, i), _) -> pure ("Label " <> show i, map show ts)
   , \(ts, (r, _)) -> do
       nst <- mkLeftStr $ "[Branch " <> show r <> "]"
-      pure ((nst, map show ts), restoreWrapper @Int)
+      indent <- get @Int
+      let ts' =
+            [ if r1 == r then replicate (indent * 2 + 2) ' ' <> show t else show t
+            | (r1, t) <- zip (rRange @r) ts
+            ]
+      pure ((nst, ts'), restoreWrapper @Int)
   , \_ -> pure ()
   , \((ts, i), _) -> do
       nst <- mkLeftStr $ "Goto " <> show i
@@ -121,14 +121,14 @@ mkLine (ls, rs) = do
     rightMaxPos = maxRv + 2
   tell [fillStr ' ' leftMaxPos ls <> concatMap (fillStr ' ' rightMaxPos) rs]
 
-render2XTraverse
+render2XFold
   :: forall r bst sig m
    . ( Has (Reader (LV, RV) :+: Writer [String]) sig m
      , Enum r
      , Bounded r
      )
   => XFold m RenderProt r bst
-render2XTraverse =
+render2XFold =
   ( \(vs, _) -> mkLine @r vs
   , \(vs, _) -> mkLine @r vs
   , \(vs, _) -> do
@@ -161,4 +161,4 @@ runRender prot =
         . runWriter @[String]
         $ do
           tell [header]
-          xfold render2XTraverse prot1
+          xfold render2XFold prot1
