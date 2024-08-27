@@ -25,6 +25,7 @@ import Data.Semigroup (Max (..))
 import Data.Traversable (for)
 import TypedSession.State.Type
 import TypedSession.State.Utils
+import qualified Data.List as L
 
 data RenderProt
 
@@ -63,8 +64,8 @@ render1XTraverse
      )
   => XTraverse m (MsgT r bst) RenderProt r bst
 render1XTraverse =
-  ( \((ts, (from, to), idx), (constr, _, _, _, _)) -> do
-      nst <- mkLeftStr constr
+  ( \((ts, (from, to), idx), (constr, args, _, _, _)) -> do
+      nst <- mkLeftStr (constr <> " [" <> L.intercalate "," args <> "]")
       when (idx == 0) (modify @Int (+ 1))
       ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
         let sht =
