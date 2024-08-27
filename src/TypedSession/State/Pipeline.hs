@@ -19,7 +19,7 @@
 {-# LANGUAGE NoFieldSelectors #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module TypedSession.State.Pipeline where
+module TypedSession.State.Pipeline (pipe, pipeWithTracer, genGraph, PipeResult (..)) where
 
 import Control.Algebra ((:+:))
 import Control.Carrier.Error.Either (runError)

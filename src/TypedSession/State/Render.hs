@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module TypedSession.State.Render where
+module TypedSession.State.Render (runRender) where
 
 import Control.Algebra ((:+:))
 import Control.Carrier.Reader (runReader)

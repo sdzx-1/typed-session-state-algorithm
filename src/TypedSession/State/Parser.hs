@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module TypedSession.State.Parser where
+module TypedSession.State.Parser (runProtocolParser) where
 
 import Data.Char (isUpper)
 import qualified Data.List as L
@@ -13,14 +13,6 @@ import Text.Megaparsec hiding (Label, label)
 import Text.Megaparsec.Char (char, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import TypedSession.State.Type
-
-{-
-
-1. protocol name
-2. role name
-3. branch state (options)
-
--}
 
 data ParserError
   = EmptyInput
