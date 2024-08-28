@@ -20,12 +20,12 @@ import Control.Monad
 import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
 import qualified Data.List as L
+import Data.Map (Map)
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
 import qualified TypedSession.State.Constraint as C
-import Data.Map (Map)
 
 type family XMsg eta
 type family XLabel eta
@@ -39,7 +39,7 @@ type ForallX (f :: Type -> Constraint) eta =
   (f (XMsg eta), f (XLabel eta), f (XBranch eta), f (XBranchSt eta), f (XGoto eta), f (XTerminal eta))
 
 -- | BranchSt
-data BranchSt eta r bst = BranchSt (XBranchSt eta) bst (Protocol eta r bst)
+data BranchSt eta r bst = BranchSt (XBranchSt eta) bst [[String]] (Protocol eta r bst)
   deriving (Functor)
 
 -- | MsgOrLabel
@@ -67,7 +67,7 @@ type XTraverse m eta gama r bst =
         ( XBranch gama
         , m (Protocol gama r bst) -> m (Protocol gama r bst)
         )
-  , (XBranchSt eta, (bst, Protocol eta r bst)) -> m (XBranchSt gama)
+  , (XBranchSt eta, (bst, [[String]], Protocol eta r bst)) -> m (XBranchSt gama)
   , (XGoto eta, Int) -> m (XGoto gama)
   , (XTerminal eta) -> m (XTerminal gama)
   )
@@ -91,10 +91,10 @@ xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case pr
     pure (res :> prots')
   Branch xv r st ls -> do
     (xv', wrapper) <- xbranch (xv, (r, st, ls))
-    ls' <- forM ls $ \(BranchSt xbst bst prot1) -> do
-      xbst' <- xbranchSt (xbst, (bst, prot1))
+    ls' <- forM ls $ \(BranchSt xbst bst args prot1) -> do
+      xbst' <- xbranchSt (xbst, (bst, args, prot1))
       prot' <- wrapper $ xtraverse xt prot1
-      pure (BranchSt xbst' bst prot')
+      pure (BranchSt xbst' bst args prot')
     pure (Branch xv' r st ls')
   Goto xv i -> do
     xv' <- xgoto (xv, i)
@@ -108,7 +108,7 @@ type XFold m eta r bst =
   ( (XMsg eta, (String, [[String]], r, r, Protocol eta r bst)) -> m ()
   , (XLabel eta, Int) -> m ()
   , (XBranch eta, (r, String, [BranchSt eta r bst])) -> m (m () -> m ())
-  , (XBranchSt eta, (bst, Protocol eta r bst)) -> m ()
+  , (XBranchSt eta, (bst, [[String]], Protocol eta r bst)) -> m ()
   , (XGoto eta, Int) -> m ()
   , (XTerminal eta) -> m ()
   )
@@ -123,8 +123,8 @@ xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot o
     xfold xt prots
   Branch xv r st ls -> do
     wrapper <- xbranch (xv, (r, st, ls))
-    forM_ ls $ \(BranchSt xbst bst prot1) -> do
-      xbranchst (xbst, (bst, prot1))
+    forM_ ls $ \(BranchSt xbst bst args prot1) -> do
+      xbranchst (xbst, (bst, args, prot1))
       wrapper $ xfold xt prot1
   Goto xv i -> xgoto (xv, i)
   Terminal xv -> xterminal xv
@@ -175,7 +175,7 @@ data Tracer r bst
   | TracerCollectBranchDynVal (Set Int)
   | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
   | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
-  | TracerBranchResultTI (Map String [(bst, T bst)])
+  | TracerBranchResultTI (Map String [(bst, [[String]], T bst)])
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -268,7 +268,8 @@ type instance XTerminal (MsgT1 r bst) = [T bst]
 ------------------------
 
 instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Pretty (BranchSt eta r bst) where
-  pretty (BranchSt xbst bst prot) = "* BranchSt" <+> pretty (show xbst) <+> pretty (show bst) <> line <> (pretty prot)
+  pretty (BranchSt xbst bst args prot) =
+    "* BranchSt" <+> pretty (show xbst) <+> pretty (show bst) <+> pretty ((fmap (L.intercalate " ") args)) <> line <> (pretty prot)
 
 instance (Show (XMsg eta), Show (XLabel eta), Show r) => Pretty (MsgOrLabel eta r) where
   pretty = \case

@@ -108,8 +108,9 @@ parseBranchSt
 parseBranchSt = dbg "BranchSt" $ do
   branchSt
   bst <- mkParserA @bst
+  args <- brackets ((some constrOrType) `sepBy` comma)
   prot <- parseProtocol @r @bst
-  pure (BranchSt () bst prot)
+  pure (BranchSt () bst args prot)
 
 parseBranch
   :: forall r bst

@@ -90,8 +90,8 @@ render1XTraverse =
             | (r1, t) <- zip (rRange @r) ts
             ]
       pure ((nst, ts'), restoreWrapper @Int)
-  , \(_, (bst, _)) -> do
-      nst <- mkLeftStr $ "* BranchSt_" <> show bst
+  , \(_, (bst, args, _)) -> do
+      nst <- mkLeftStr $ "* BranchSt_" <> show bst <> " [" <> L.intercalate "," (fmap (L.intercalate " ") args) <> "]"
       pure nst
   , \((ts, i), _) -> do
       nst <- mkLeftStr $ "Goto " <> show i

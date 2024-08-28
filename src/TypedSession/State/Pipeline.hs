@@ -171,7 +171,7 @@ checkProtXFold =
       when (length ls < 1) (throwError @(ProtocolError r bst) BranchAtLeastOneBranch)
       put r1
       pure (restoreWrapper1 @r)
-  , \(_, (r, prot)) ->
+  , \(_, (r, _, prot)) ->
       if isMsgExistBeforeNextTerm prot
         then pure ()
         else throwError @(ProtocolError r bst) (MsgDoNotExistBeforeNextTerm (show r))
@@ -294,7 +294,7 @@ genMsgTXTraverse =
   , \(ls, (r, _, _)) -> do
       ls' <- mapM (\(idx, v) -> genT (if idx == fromEnum r then const TNum else (const TAny)) v) (zip [0 ..] ls)
       pure (ls', restoreWrapper @bst)
-  , \(_, (bst, _)) -> put bst
+  , \(_, (bst, _, _)) -> put bst
   , \((is, i), _) -> do
       is' <- mapM (genT @bst (const TAny)) is
       pure (is', i)
@@ -328,12 +328,12 @@ data PipeResult r bst = PipeResult
   , msgT1 :: Protocol (MsgT1 r bst) r bst
   , dnySet :: Set Int
   , stBound :: (Int, Int)
-  , branchResultTypeInfo :: [(String, [(bst, T bst)])]
+  , branchResultTypeInfo :: [(String, [(bst, [[String]], T bst)])]
   }
 
 genBranchResultTIXFold
   :: forall r bst sig m
-   . (Has (State String :+: (State (Map String [(bst, T bst)]))) sig m)
+   . (Has (State String :+: (State (Map String [(bst, [[String]], T bst)]))) sig m)
   => XFold m (MsgT1 r bst) r bst
 genBranchResultTIXFold =
   ( \_ -> pure ()
@@ -341,12 +341,12 @@ genBranchResultTIXFold =
   , \(_, (_, st, _)) -> do
       put st
       pure (restoreWrapper @String)
-  , \(_, (bst, prot)) -> do
+  , \(_, (bst, args, prot)) -> do
       case getNextT prot of
         Nothing -> error internalError
         Just t -> do
           name <- get @String
-          modify @(Map String [(bst, T bst)]) (Map.insertWith (<>) name [(bst, t)])
+          modify @(Map String [(bst, [[String]], T bst)]) (Map.insertWith (<>) name [(bst, args, t)])
   , \_ -> pure ()
   , \_ -> pure ()
   )
@@ -413,7 +413,7 @@ pipe' trace prot0 = do
   branchTIMap <-
     fmap (fst . snd)
       . runState @String (error internalError)
-      . runState @(Map String [(bst, T bst)]) Map.empty
+      . runState @(Map String [(bst, [[String]], T bst)]) Map.empty
       $ xfold genBranchResultTIXFold prot5
   trace (TracerBranchResultTI branchTIMap)
   pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap))
