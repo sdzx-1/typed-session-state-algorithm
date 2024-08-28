@@ -132,39 +132,39 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 {-
 >>> error r2
 --------------------------------------------Buyer----------------------Seller---------------------Buyer2---------------------
-Label 0                                     S0                         S0                         S1 s                       
-  Title [String]                            S0 ->                      S0 <-                      S1 s                       
-  [Branch Seller FindBookResult]            S2 s                         S3                       S1 s                       
-  * BranchSt_Found []                       
-  Price [Int]                               S2 s <-                      {S2 Found} ->            S1 s                       
-    [Branch Buyer OneOrTwo]                     S4                     S5 s                       S1 s                       
-    * BranchSt_Two []                       
-    PriceToBuyer2 [Int]                         {S1 Two} ->            S5 s                       S1 s <-                    
-      [Branch Buyer2 SupportOrNotSupport]   S6 s                       S5 s                             S7                   
-      * BranchSt_NotSupport []              
-      NotSupport1 []                        S6 s <-                    S5 s                             {S6 NotSupport} ->   
-        TwoNotBuy []                        S5 NotSupport ->           S5 s <-                    S1 s                       
-        Goto 0                              S0                         S0                         S1 s                       
-      * BranchSt_Support []                 
-      SupportVal [Int]                      S6 s <-                    S5 s                             {S6 Support} ->      
-        [Branch Buyer EnoughOrNotEnough]            S8                 S5 s                       S9 s                       
-        * BranchSt_Enough []                
-        TwoAccept []                                {S5 Enough} ->     S5 s <-                    S9 s                       
-          TwoDate [Int]                     S10 <-                     S10 ->                     S9 s                       
-          TwoSuccess [Int]                  S9 Enough ->               S0                         S9 s <-                    
-          Goto 0                            S0                         S0                         S1 s                       
-        * BranchSt_NotEnough []             
-        TwoNotBuy1 []                               {S5 NotEnough} ->  S5 s <-                    S9 s                       
-          TwoFailed []                      S9 NotEnough ->            End                        S9 s <-                    
-          Terminal                          End                        End                        End                        
-    * BranchSt_One []                       
-    OneAccept []                                {S5 One} ->            S5 s <-                    S1 s                       
-      OneDate [Int]                         S11 <-                     S11 ->                     S1 s                       
-      OneSuccess [Int]                      S1 One ->                  S0                         S1 s <-                    
-      Goto 0                                S0                         S0                         S1 s                       
-  * BranchSt_NotFound []                    
-  NoBook []                                 S2 s <-                      {S2 NotFound} ->         S1 s                       
-    SellerNoBook []                         S1 NotFound ->             S0                         S1 s <-                    
-    Goto 0                                  S0                         S0                         S1 s                       
+Label 0                                     S0                         S0                         S1 s
+  Title [String]                            S0 ->                      S0 <-                      S1 s
+  [Branch Seller FindBookResult]            S2 s                         S3                       S1 s
+  * BranchSt_Found []
+  Price [Int]                               S2 s <-                      {S2 Found} ->            S1 s
+    [Branch Buyer OneOrTwo]                     S4                     S5 s                       S1 s
+    * BranchSt_Two []
+    PriceToBuyer2 [Int]                         {S1 Two} ->            S5 s                       S1 s <-
+      [Branch Buyer2 SupportOrNotSupport]   S6 s                       S5 s                             S7
+      * BranchSt_NotSupport []
+      NotSupport1 []                        S6 s <-                    S5 s                             {S6 NotSupport} ->
+        TwoNotBuy []                        S5 NotSupport ->           S5 s <-                    S1 s
+        Goto 0                              S0                         S0                         S1 s
+      * BranchSt_Support []
+      SupportVal [Int]                      S6 s <-                    S5 s                             {S6 Support} ->
+        [Branch Buyer EnoughOrNotEnough]            S8                 S5 s                       S9 s
+        * BranchSt_Enough []
+        TwoAccept []                                {S5 Enough} ->     S5 s <-                    S9 s
+          TwoDate [Int]                     S10 <-                     S10 ->                     S9 s
+          TwoSuccess [Int]                  S9 Enough ->               S0                         S9 s <-
+          Goto 0                            S0                         S0                         S1 s
+        * BranchSt_NotEnough []
+        TwoNotBuy1 []                               {S5 NotEnough} ->  S5 s <-                    S9 s
+          TwoFailed []                      S9 NotEnough ->            End                        S9 s <-
+          Terminal                          End                        End                        End
+    * BranchSt_One []
+    OneAccept []                                {S5 One} ->            S5 s <-                    S1 s
+      OneDate [Int]                         S11 <-                     S11 ->                     S1 s
+      OneSuccess [Int]                      S1 One ->                  S0                         S1 s <-
+      Goto 0                                S0                         S0                         S1 s
+  * BranchSt_NotFound []
+  NoBook []                                 S2 s <-                      {S2 NotFound} ->         S1 s
+    SellerNoBook []                         S1 NotFound ->             S0                         S1 s <-
+    Goto 0                                  S0                         S0                         S1 s
 
 -}

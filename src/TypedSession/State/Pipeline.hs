@@ -329,16 +329,20 @@ data PipeResult r bst = PipeResult
   , dnySet :: Set Int
   , stBound :: (Int, Int)
   , branchResultTypeInfo :: [(String, [(bst, [[String]], T bst)])]
+  , branchFunList :: [(r, String, T bst)]
   }
 
 genBranchResultTIXFold
   :: forall r bst sig m
-   . (Has (State String :+: (State (Map String [(bst, [[String]], T bst)]))) sig m)
+   . ( Has (State String :+: Writer [(r, String, T bst)] :+: (State (Map String [(bst, [[String]], T bst)]))) sig m
+     , Enum r
+     )
   => XFold m (MsgT1 r bst) r bst
 genBranchResultTIXFold =
   ( \_ -> pure ()
   , \_ -> pure ()
-  , \(_, (_, st, _)) -> do
+  , \(ts, (r, st, _)) -> do
+      tell [(r, st, ts !! (fromEnum r))]
       put st
       pure (restoreWrapper @String)
   , \(_, (bst, args, prot)) -> do
@@ -410,13 +414,13 @@ pipe' trace prot0 = do
   trace (TracerProtocolMsgT prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4
   trace (TracerProtocolMsgT1 prot5)
-  branchTIMap <-
-    fmap (fst . snd)
+  (bfl, (_, (branchTIMap, _))) <-
+    runWriter @[(r, String, T bst)]
       . runState @String (error internalError)
       . runState @(Map String [(bst, [[String]], T bst)]) Map.empty
       $ xfold genBranchResultTIXFold prot5
-  trace (TracerBranchResultTI branchTIMap)
-  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap))
+  trace (TracerBranchResultTI bfl branchTIMap)
+  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap) bfl)
 
 pipe
   :: forall r bst
