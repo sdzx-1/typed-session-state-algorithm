@@ -25,6 +25,7 @@ import Data.Set (Set)
 import Prettyprinter
 import Prettyprinter.Render.String (renderString)
 import qualified TypedSession.State.Constraint as C
+import Data.Map (Map)
 
 type family XMsg eta
 type family XLabel eta
@@ -174,6 +175,7 @@ data Tracer r bst
   | TracerCollectBranchDynVal (Set Int)
   | TracerProtocolMsgT (Protocol (MsgT r bst) r bst)
   | TracerProtocolMsgT1 (Protocol (MsgT1 r bst) r bst)
+  | TracerBranchResultTI (Map String [(bst, T bst)])
 
 traceWrapper :: String -> String -> String
 traceWrapper desc st =
@@ -193,6 +195,7 @@ instance (Show r, Show bst) => Show (Tracer r bst) where
     TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
     TracerProtocolMsgT p -> traceWrapper "MsgT" $ show p
     TracerProtocolMsgT1 p -> traceWrapper "MsgT1" $ show p
+    TracerBranchResultTI st -> traceWrapper "BranchResultTI" $ show st
 
 ------------------------
 

@@ -75,6 +75,12 @@ addIdxXTraverse =
   , const get
   )
 
+reRank :: Set Int -> Int -> IntMap Int
+reRank branchValSet maxSize =
+  let allSet = Set.insert 0 branchValSet
+      restList = [i | i <- [0 .. maxSize], i `Set.notMember` allSet]
+   in IntMap.fromList $ zip (Set.toList allSet ++ restList) [0 ..]
+
 reRankXTraverse :: (Monad m) => IntMap Int -> XTraverse m Idx Idx r bst
 reRankXTraverse sbm =
   ( \((a, b, idx), _) -> pure (replaceVal sbm a, replaceVal sbm b, idx)
@@ -322,13 +328,34 @@ data PipeResult r bst = PipeResult
   , msgT1 :: Protocol (MsgT1 r bst) r bst
   , dnySet :: Set Int
   , stBound :: (Int, Int)
+  , branchResultTypeInfo :: [(String, [(bst, T bst)])]
   }
 
-reRank :: Set Int -> Int -> IntMap Int
-reRank branchValSet maxSize =
-  let allSet = Set.insert 0 branchValSet
-      restList = [i | i <- [0 .. maxSize], i `Set.notMember` allSet]
-   in IntMap.fromList $ zip (Set.toList allSet ++ restList) [0 ..]
+genBranchResultTIXFold
+  :: forall r bst sig m
+   . (Has (State String :+: (State (Map String [(bst, T bst)]))) sig m)
+  => XFold m (MsgT1 r bst) r bst
+genBranchResultTIXFold =
+  ( \_ -> pure ()
+  , \_ -> pure ()
+  , \(_, (_, st, _)) -> do
+      put st
+      pure (restoreWrapper @String)
+  , \(_, (bst, prot)) -> do
+      case getNextT prot of
+        Nothing -> error internalError
+        Just t -> do
+          name <- get @String
+          modify @(Map String [(bst, T bst)]) (Map.insertWith (<>) name [(bst, t)])
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
+getNextT :: Protocol (MsgT1 r bst) r bst -> Maybe (T bst)
+getNextT = \case
+  Msg ((a, _, _), _, _) _ _ _ _ :> _ -> Just a
+  Label{} :> prot -> getNextT prot
+  _ -> Nothing
 
 pipe'
   :: forall r bst sig m
@@ -383,7 +410,13 @@ pipe' trace prot0 = do
   trace (TracerProtocolMsgT prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4
   trace (TracerProtocolMsgT1 prot5)
-  pure (PipeResult prot4 prot5 dnys stBound)
+  branchTIMap <-
+    fmap (fst . snd)
+      . runState @String (error internalError)
+      . runState @(Map String [(bst, T bst)]) Map.empty
+      $ xfold genBranchResultTIXFold prot5
+  trace (TracerBranchResultTI branchTIMap)
+  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap))
 
 pipe
   :: forall r bst
