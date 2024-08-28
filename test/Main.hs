@@ -15,7 +15,7 @@ main = putStrLn "Test suite not yet implemented."
 data PingPongRole = Client | Server | Counter
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
-data PingPongBranchSt = STrue | SFalse
+data PingPongBranchSt = Continue | Finish
   deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
 s1 =
@@ -23,12 +23,12 @@ s1 =
   
   Label 0
     Branch Client {
-      BranchSt STrue
+      BranchSt Continue
           Msg "AddOne" [] Client Counter
           Msg "Ping" ["Int", "Int", "Int"] Client Server
           Msg "Pong" [] Server Client
           Goto 0
-      BranchSt SFalse
+      BranchSt Finish
           Msg "Stop" [] Client Server
           Msg "CStop" [] Client Counter
           Terminal
@@ -45,17 +45,19 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 
 {-
 >>> error r1
+-------------------------Client--------------Server--------------Counter-------------
+Label 0                  S0                  S1 s                S2 s                
+  [Branch Client]          S0                S1 s                S2 s                
+  * BranchSt_Continue    
+  AddOne []                {S2 Continue} ->  S1 s                S2 s <-             
+    Ping [Int,Int,Int]   S1 Continue ->      S1 s <-             S2 s                
+    Pong []              S3 <-               S3 ->               S2 s                
+    Goto 0               S0                  S1 s                S2 s                
+  * BranchSt_Finish      
+  Stop []                  {S1 Finish} ->    S1 s <-             S2 s                
+    CStop []             S2 Finish ->        End                 S2 s <-             
+    Terminal             End                 End                 End                 
 
---------------------------Client------------Server------------Counter-----------
-Label 0                   S0                S1 s              S2 s              
-   [Branch Client]          S0              S1 s              S2 s              
-   AddOne []                {S2 STrue} ->   S1 s              S2 s <-           
-     Ping [Int,Int,Int]   S1 STrue ->       S1 s <-           S2 s              
-     Pong []              S3 <-             S3 ->             S2 s              
-     Goto 0               S0                S1 s              S2 s              
-   Stop []                  {S1 SFalse} ->  S1 s <-           S2 s              
-     CStop []             S2 SFalse ->      End               S2 s <-           
-     Terminal             End               End               End               
 -}
 
 data Role
@@ -127,35 +129,42 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
             let st = show seqList
              in runRender msgT
 
-
 {-
 >>> error r2
-------------------------------Buyer----------------------Seller---------------------Buyer2---------------------
-Label 0                       S0                         S0                         S1 s                       
-   Title [String]             S0 ->                      S0 <-                      S1 s                       
-   [Branch Seller]            S2 s                         S3                       S1 s                       
-   Price [Int]                S2 s <-                      {S2 Found} ->            S1 s                       
-     [Branch Buyer]               S4                     S5 s                       S1 s                       
-     PriceToBuyer2 [Int]          {S1 Two} ->            S5 s                       S1 s <-                    
-       [Branch Buyer2]        S6 s                       S5 s                             S7                   
-       NotSupport1 []         S6 s <-                    S5 s                             {S6 NotSupport} ->   
-         TwoNotBuy []         S5 NotSupport ->           S5 s <-                    S1 s                       
-         Goto 0               S0                         S0                         S1 s                       
-       SupportVal [Int]       S6 s <-                    S5 s                             {S6 Support} ->      
-         [Branch Buyer]               S8                 S5 s                       S9 s                       
-         TwoAccept []                 {S5 Enough} ->     S5 s <-                    S9 s                       
-           TwoDate [Int]      S10 <-                     S10 ->                     S9 s                       
-           TwoSuccess [Int]   S9 Enough ->               S0                         S9 s <-                    
-           Goto 0             S0                         S0                         S1 s                       
-         TwoNotBuy1 []                {S5 NotEnough} ->  S5 s <-                    S9 s                       
-           TwoFailed []       S9 NotEnough ->            End                        S9 s <-                    
-           Terminal           End                        End                        End                        
-     OneAccept []                 {S5 One} ->            S5 s <-                    S1 s                       
-       OneDate [Int]          S11 <-                     S11 ->                     S1 s                       
-       OneSuccess [Int]       S1 One ->                  S0                         S1 s <-                    
-       Goto 0                 S0                         S0                         S1 s                       
-   NoBook []                  S2 s <-                      {S2 NotFound} ->         S1 s                       
-     SellerNoBook []          S1 NotFound ->             S0                         S1 s <-                    
-     Goto 0                   S0                         S0                         S1 s                       
+-------------------------------Buyer----------------------Seller---------------------Buyer2---------------------
+Label 0                        S0                         S0                         S1 s                       
+  Title [String]               S0 ->                      S0 <-                      S1 s                       
+  [Branch Seller]              S2 s                         S3                       S1 s                       
+  * BranchSt_Found             
+  Price [Int]                  S2 s <-                      {S2 Found} ->            S1 s                       
+    [Branch Buyer]                 S4                     S5 s                       S1 s                       
+    * BranchSt_Two             
+    PriceToBuyer2 [Int]            {S1 Two} ->            S5 s                       S1 s <-                    
+      [Branch Buyer2]          S6 s                       S5 s                             S7                   
+      * BranchSt_NotSupport    
+      NotSupport1 []           S6 s <-                    S5 s                             {S6 NotSupport} ->   
+        TwoNotBuy []           S5 NotSupport ->           S5 s <-                    S1 s                       
+        Goto 0                 S0                         S0                         S1 s                       
+      * BranchSt_Support       
+      SupportVal [Int]         S6 s <-                    S5 s                             {S6 Support} ->      
+        [Branch Buyer]                 S8                 S5 s                       S9 s                       
+        * BranchSt_Enough      
+        TwoAccept []                   {S5 Enough} ->     S5 s <-                    S9 s                       
+          TwoDate [Int]        S10 <-                     S10 ->                     S9 s                       
+          TwoSuccess [Int]     S9 Enough ->               S0                         S9 s <-                    
+          Goto 0               S0                         S0                         S1 s                       
+        * BranchSt_NotEnough   
+        TwoNotBuy1 []                  {S5 NotEnough} ->  S5 s <-                    S9 s                       
+          TwoFailed []         S9 NotEnough ->            End                        S9 s <-                    
+          Terminal             End                        End                        End                        
+    * BranchSt_One             
+    OneAccept []                   {S5 One} ->            S5 s <-                    S1 s                       
+      OneDate [Int]            S11 <-                     S11 ->                     S1 s                       
+      OneSuccess [Int]         S1 One ->                  S0                         S1 s <-                    
+      Goto 0                   S0                         S0                         S1 s                       
+  * BranchSt_NotFound          
+  NoBook []                    S2 s <-                      {S2 NotFound} ->         S1 s                       
+    SellerNoBook []            S1 NotFound ->             S0                         S1 s <-                    
+    Goto 0                     S0                         S0                         S1 s                       
 
 -}

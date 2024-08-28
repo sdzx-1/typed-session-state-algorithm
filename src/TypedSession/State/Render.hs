@@ -32,7 +32,7 @@ data RenderProt
 type instance XMsg RenderProt = (String, [String])
 type instance XLabel RenderProt = (String, [String])
 type instance XBranch RenderProt = (String, [String])
-type instance XBranchSt RenderProt = ()
+type instance XBranchSt RenderProt = String
 type instance XGoto RenderProt = (String, [String])
 type instance XTerminal RenderProt = (String, [String])
 
@@ -48,7 +48,7 @@ newtype RV = RV Int
 mkLeftStr :: (Has (State Int :+: Writer (Max LV)) sig m) => String -> m String
 mkLeftStr str = do
   indent <- get @Int
-  let str' = replicate (indent * 2 + 3) ' ' <> str
+  let str' = replicate (indent * 2 + 2) ' ' <> str
   tell (Max $ LV $ length str')
   pure str'
 
@@ -90,7 +90,9 @@ render1XTraverse =
             | (r1, t) <- zip (rRange @r) ts
             ]
       pure ((nst, ts'), restoreWrapper @Int)
-  , \_ -> pure ()
+  , \(_, (bst, _)) -> do
+      nst <- mkLeftStr $ "* BranchSt_" <> show bst
+      pure nst
   , \((ts, i), _) -> do
       nst <- mkLeftStr $ "Goto " <> show i
       pure (nst, map show ts)
@@ -134,7 +136,7 @@ render2XFold =
   , \(vs, _) -> do
       mkLine @r vs
       pure id
-  , \_ -> pure ()
+  , \(ls, _) -> mkLine @r (ls, [])
   , \(vs, _) -> mkLine @r vs
   , \vs -> mkLine @r vs
   )
