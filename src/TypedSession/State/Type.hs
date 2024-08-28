@@ -138,6 +138,7 @@ data ProtocolError r bst
   | TerminalNeedAllRoleDecide String
   | BranchAtLeastOneBranch
   | AStateOnlyBeUsedForTheSamePair
+  | MsgDoNotExistBeforeNextTerm String
 
 instance (Show r, Show bst) => Show (ProtocolError r bst) where
   show = \case
@@ -155,6 +156,7 @@ instance (Show r, Show bst) => Show (ProtocolError r bst) where
     TerminalNeedAllRoleDecide msgName -> "Msg " <> msgName <> ", Terminal need all role decide!"
     BranchAtLeastOneBranch -> "Branch at least one branch!"
     AStateOnlyBeUsedForTheSamePair -> "A state can only be used for the same pair of communicators." ++ internalError
+    MsgDoNotExistBeforeNextTerm st -> "BranchSt " <> st <> " do not exist any Msg before next term!"
 
 internalError :: String
 internalError = "Internal error, please report: https://github.com/sdzx-1/typed-session/issues"

@@ -134,7 +134,13 @@ restoreWrapper1 m = do
 
 checkProtXFold
   :: forall r bst sig m
-   . (Has (State (Map r CurrSt) :+: State r :+: Error (ProtocolError r bst)) sig m, Eq r, Ord r, Enum r, Bounded r)
+   . ( Has (State (Map r CurrSt) :+: State r :+: Error (ProtocolError r bst)) sig m
+     , Eq r
+     , Ord r
+     , Enum r
+     , Bounded r
+     , Show bst
+     )
   => XFold m (GenConst r) r bst
 checkProtXFold =
   ( \((_, (from, to), idx), (msgName, _, _, _, prot)) -> do
@@ -159,10 +165,19 @@ checkProtXFold =
       when (length ls < 1) (throwError @(ProtocolError r bst) BranchAtLeastOneBranch)
       put r1
       pure (restoreWrapper1 @r)
-  , \_ -> pure ()
+  , \(_, (r, prot)) ->
+      if isMsgExistBeforeNextTerm prot
+        then pure ()
+        else throwError @(ProtocolError r bst) (MsgDoNotExistBeforeNextTerm (show r))
   , \_ -> pure ()
   , \_ -> pure ()
   )
+
+isMsgExistBeforeNextTerm :: Protocol eta r bst -> Bool
+isMsgExistBeforeNextTerm = \case
+  Msg{} :> _ -> True
+  Label{} :> port -> isMsgExistBeforeNextTerm port
+  _ -> False
 
 genConstrXFold
   :: forall r bst sig m
@@ -322,6 +337,7 @@ pipe'
      , Bounded r
      , Eq r
      , Ord r
+     , Show bst
      )
   => (Tracer r bst -> m ())
   -> Protocol Creat r bst
@@ -371,7 +387,7 @@ pipe' trace prot0 = do
 
 pipe
   :: forall r bst
-   . (Enum r, Bounded r, Eq r, Ord r)
+   . (Enum r, Bounded r, Eq r, Ord r, Show bst)
   => Protocol Creat r bst
   -> Either
       (ProtocolError r bst)
@@ -381,7 +397,7 @@ pipe protocol =
 
 pipeWithTracer
   :: forall r bst
-   . (Enum r, Bounded r, Eq r, Ord r)
+   . (Enum r, Bounded r, Eq r, Ord r, Show bst)
   => Protocol Creat r bst
   -> ( Seq (Tracer r bst)
      , Either
