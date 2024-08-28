@@ -19,6 +19,7 @@ module TypedSession.State.Type where
 import Control.Monad
 import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
+import qualified Data.List as L
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Prettyprinter
@@ -42,7 +43,7 @@ data BranchSt eta r bst = BranchSt (XBranchSt eta) bst (Protocol eta r bst)
 
 -- | MsgOrLabel
 data MsgOrLabel eta r
-  = Msg (XMsg eta) String [String] r r
+  = Msg (XMsg eta) String [[String]] r r
   | Label (XLabel eta) Int
   deriving (Functor)
 
@@ -58,7 +59,7 @@ data Protocol eta r bst
 
 -- | XTraverse
 type XTraverse m eta gama r bst =
-  ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m (XMsg gama)
+  ( (XMsg eta, (String, [[String]], r, r, Protocol eta r bst)) -> m (XMsg gama)
   , (XLabel eta, (Int, Protocol eta r bst)) -> m (XLabel gama)
   , (XBranch eta, (r, String, [BranchSt eta r bst]))
     -> m
@@ -103,7 +104,7 @@ xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case pr
 
 -- | XFold
 type XFold m eta r bst =
-  ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m ()
+  ( (XMsg eta, (String, [[String]], r, r, Protocol eta r bst)) -> m ()
   , (XLabel eta, Int) -> m ()
   , (XBranch eta, (r, String, [BranchSt eta r bst])) -> m (m () -> m ())
   , (XBranchSt eta, (bst, Protocol eta r bst)) -> m ()
@@ -267,7 +268,7 @@ instance (Pretty (Protocol eta r bst), Show (XBranchSt eta), Show bst) => Pretty
 instance (Show (XMsg eta), Show (XLabel eta), Show r) => Pretty (MsgOrLabel eta r) where
   pretty = \case
     Msg xv cst args from to ->
-      hsep ["Msg", angles (pretty $ show xv), pretty cst, pretty args, pretty (show from), pretty (show to)]
+      hsep ["Msg", angles (pretty $ show xv), pretty cst, pretty ((fmap (L.intercalate " ") args)), pretty (show from), pretty (show to)]
     Label xv i -> hsep ["Label", pretty $ show xv, pretty i]
 
 instance (ForallX Show eta, Show r, Show bst) => Pretty (Protocol eta r bst) where

@@ -65,7 +65,7 @@ render1XTraverse
   => XTraverse m (MsgT r bst) RenderProt r bst
 render1XTraverse =
   ( \((ts, (from, to), idx), (constr, args, _, _, _)) -> do
-      nst <- mkLeftStr (constr <> " [" <> L.intercalate "," args <> "]")
+      nst <- mkLeftStr (constr <> " [" <> L.intercalate "," (fmap (L.intercalate " ") args) <> "]")
       ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
         indent <- get @Int
         let sht =

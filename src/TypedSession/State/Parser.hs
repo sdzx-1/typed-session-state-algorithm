@@ -7,24 +7,15 @@
 
 module TypedSession.State.Parser (runProtocolParser) where
 
-import Data.Char (isUpper)
 import qualified Data.List as L
+import Data.Void (Void)
 import Text.Megaparsec hiding (Label, label)
-import Text.Megaparsec.Char (char, space1, string)
+import Text.Megaparsec.Char (space1, string)
+import qualified Text.Megaparsec.Char as LC
 import qualified Text.Megaparsec.Char.Lexer as L
 import TypedSession.State.Type
 
-data ParserError
-  = EmptyInput
-  | TheFirstLetterNotCapitalized
-  deriving (Show, Eq, Ord)
-
-instance ShowErrorComponent ParserError where
-  showErrorComponent = \case
-    EmptyInput -> "Trying to parse constructor or type, but input is empty!"
-    TheFirstLetterNotCapitalized -> "Try to parse constructor or type, but the first letter is not capitalized!"
-
-type Parser = Parsec ParserError String
+type Parser = Parsec Void String
 
 spaceConsumer :: Parser ()
 spaceConsumer =
@@ -64,15 +55,10 @@ dbg _ ma = ma
 
 constrOrType :: Parser String
 constrOrType = dbg "constrOrType" $ do
-  st <- char '"' >> manyTill L.charLiteral (char '"')
-  case st of
-    [] -> customFailure EmptyInput
-    (x : _) ->
-      if isUpper x
-        then pure st
-        else customFailure TheFirstLetterNotCapitalized
+  x <- LC.upperChar
+  xs <- many LC.alphaNumChar
   spaceConsumer
-  pure st
+  pure (x : xs)
 
 mkParserA :: forall a. (Enum a, Bounded a, Show a) => Parser a
 mkParserA = do
@@ -93,7 +79,7 @@ parseMsg
 parseMsg = dbg "Msg" $ do
   msg
   constr <- constrOrType
-  args <- brackets (constrOrType `sepBy` comma)
+  args <- brackets ((some constrOrType) `sepBy` comma)
   from <- mkParserA @r
   to <- mkParserA @r
   pure $ Msg () constr args from to
@@ -160,5 +146,5 @@ runProtocolParser
 runProtocolParser st =
   let res = runParser (between spaceConsumer eof $ parseProtocol @r @bst) "" st
    in case res of
-        Left e -> Left $ errorBundlePretty @String @ParserError e
+        Left e -> Left $ errorBundlePretty @String @Void e
         Right a -> Right a
