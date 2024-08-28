@@ -152,7 +152,7 @@ checkProtXFold =
           when (any (/= Decide) vals) (throwError @(ProtocolError r bst) (TerminalNeedAllRoleDecide msgName))
         _ -> pure ()
   , \_ -> pure ()
-  , \(_, (r1, ls)) -> do
+  , \(_, (r1, _, ls)) -> do
       r1CurrSt <- getRCurrSt r1
       when (r1CurrSt == Undecide) (throwError @(ProtocolError r bst) (UndecideStateCanNotStartBranch ls))
       for_ [r | r <- rRange, r /= r1] $ \r -> modify (Map.insert r Undecide)
@@ -234,7 +234,7 @@ collectBranchDynValXFold :: (Has (State (Set Int)) sig m, Enum r) => XFold m (Ge
 collectBranchDynValXFold =
   ( \_ -> pure ()
   , \_ -> pure ()
-  , \(ls, (r, _)) -> do
+  , \(ls, (r, _, _)) -> do
       let ls' = map snd $ filter (\(i, _) -> i /= fromEnum r) $ zip [0 ..] ls
       modify (`Set.union` (Set.fromList ls'))
       pure id
@@ -270,7 +270,7 @@ genMsgTXTraverse =
   , \((ls, idx), _) -> do
       ls' <- mapM (genT (const TAny)) ls
       pure (ls', idx)
-  , \(ls, (r, _)) -> do
+  , \(ls, (r, _, _)) -> do
       ls' <- mapM (\(idx, v) -> genT (if idx == fromEnum r then const TNum else (const TAny)) v) (zip [0 ..] ls)
       pure (ls', restoreWrapper @bst)
   , \(_, (bst, _)) -> put bst
@@ -284,7 +284,7 @@ getFirstXV :: Protocol (MsgT r bst) r bst -> [T bst]
 getFirstXV = \case
   Msg (xv, _, _) _ _ _ _ :> _ -> xv
   Label (xv, _) _ :> _ -> xv
-  Branch xv _ _ -> xv
+  Branch xv _ _ _ -> xv
   Goto (xv, _) _ -> xv
   Terminal xv -> xv
 

@@ -131,9 +131,10 @@ parseBranch
 parseBranch = dbg "Branch" $ do
   branch
   r1 <- mkParserA @r
+  st <- constrOrType
   braces $ do
     branchSts <- some (parseBranchSt @bst @r)
-    pure (Branch () r1 branchSts)
+    pure (Branch () r1 st branchSts)
 
 parseMsgOrLabel
   :: forall r bst

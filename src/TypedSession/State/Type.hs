@@ -51,7 +51,7 @@ infixr 5 :>
 -- | Protocol
 data Protocol eta r bst
   = (MsgOrLabel eta r) :> (Protocol eta r bst)
-  | Branch (XBranch eta) r [BranchSt eta r bst]
+  | Branch (XBranch eta) r String [BranchSt eta r bst]
   | Goto (XGoto eta) Int
   | Terminal (XTerminal eta)
   deriving (Functor)
@@ -60,7 +60,7 @@ data Protocol eta r bst
 type XTraverse m eta gama r bst =
   ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m (XMsg gama)
   , (XLabel eta, (Int, Protocol eta r bst)) -> m (XLabel gama)
-  , (XBranch eta, (r, [BranchSt eta r bst]))
+  , (XBranch eta, (r, String, [BranchSt eta r bst]))
     -> m
         ( XBranch gama
         , m (Protocol gama r bst) -> m (Protocol gama r bst)
@@ -87,13 +87,13 @@ xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case pr
         pure (Label xv' i)
     prots' <- xtraverse xt prots
     pure (res :> prots')
-  Branch xv r ls -> do
-    (xv', wrapper) <- xbranch (xv, (r, ls))
+  Branch xv r st ls -> do
+    (xv', wrapper) <- xbranch (xv, (r, st, ls))
     ls' <- forM ls $ \(BranchSt xbst bst prot1) -> do
       xbst' <- xbranchSt (xbst, (bst, prot1))
       prot' <- wrapper $ xtraverse xt prot1
       pure (BranchSt xbst' bst prot')
-    pure (Branch xv' r ls')
+    pure (Branch xv' r st ls')
   Goto xv i -> do
     xv' <- xgoto (xv, i)
     pure (Goto xv' i)
@@ -105,7 +105,7 @@ xtraverse xt@(xmsg, xlabel, xbranch, xbranchSt, xgoto, xterminal) prot = case pr
 type XFold m eta r bst =
   ( (XMsg eta, (String, [String], r, r, Protocol eta r bst)) -> m ()
   , (XLabel eta, Int) -> m ()
-  , (XBranch eta, (r, [BranchSt eta r bst])) -> m (m () -> m ())
+  , (XBranch eta, (r, String, [BranchSt eta r bst])) -> m (m () -> m ())
   , (XBranchSt eta, (bst, Protocol eta r bst)) -> m ()
   , (XGoto eta, Int) -> m ()
   , (XTerminal eta) -> m ()
@@ -119,8 +119,8 @@ xfold xt@(xmsg, xlabel, xbranch, xbranchst, xgoto, xterminal) prot = case prot o
       Msg xv a b c d -> xmsg (xv, (a, b, c, d, prots))
       Label xv i -> xlabel (xv, i)
     xfold xt prots
-  Branch xv r ls -> do
-    wrapper <- xbranch (xv, (r, ls))
+  Branch xv r st ls -> do
+    wrapper <- xbranch (xv, (r, st, ls))
     forM_ ls $ \(BranchSt xbst bst prot1) -> do
       xbranchst (xbst, (bst, prot1))
       wrapper $ xfold xt prot1
@@ -273,7 +273,7 @@ instance (Show (XMsg eta), Show (XLabel eta), Show r) => Pretty (MsgOrLabel eta 
 instance (ForallX Show eta, Show r, Show bst) => Pretty (Protocol eta r bst) where
   pretty = \case
     msgOrLabel :> prots -> pretty msgOrLabel <> line <> pretty prots
-    Branch is r ls -> nest 2 $ "[Branch]" <+> pretty (show is) <+> pretty (show r) <> line <> vsep (fmap pretty ls)
+    Branch is r st ls -> nest 2 $ "[Branch]" <+> pretty (show is) <+> pretty (show r) <+> pretty (show st) <> line <> vsep (fmap pretty ls)
     Goto xv i -> "Goto" <+> pretty (show xv) <+> pretty i
     Terminal xv -> "Terminal" <+> pretty (show xv)
 

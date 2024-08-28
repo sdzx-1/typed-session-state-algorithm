@@ -82,8 +82,8 @@ render1XTraverse =
       when (idx == 0) (modify @Int (+ 1))
       pure (nst, ts')
   , \((ts, i), _) -> pure ("Label " <> show i, map show ts)
-  , \(ts, (r, _)) -> do
-      nst <- mkLeftStr $ "[Branch " <> show r <> "]"
+  , \(ts, (r, st, _)) -> do
+      nst <- mkLeftStr $ "[Branch " <> show r <> " " <> st <> "]"
       indent <- get @Int
       let ts' =
             [ if r1 == r then replicate (indent * 2 + 2) ' ' <> show t else show t
