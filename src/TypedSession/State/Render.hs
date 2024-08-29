@@ -21,6 +21,7 @@ import Control.Effect.Reader
 import Control.Effect.State
 import Control.Effect.Writer
 import Control.Monad (when)
+import Data.Foldable (for_)
 import qualified Data.List as L
 import Data.Semigroup (Max (..))
 import Data.Traversable (for)
@@ -37,7 +38,7 @@ type instance XGoto RenderProt = (String, [String])
 type instance XTerminal RenderProt = (String, [String])
 
 parensWarapper :: String -> String
-parensWarapper st = "{" <> st <> "}"
+parensWarapper st = "(" <> st <> ")"
 
 newtype LV = LV Int
   deriving (Show, Eq, Ord, Num, Bounded)
@@ -67,39 +68,33 @@ render1XTraverse =
   ( \((ts, (from, to), idx), (constr, args, _, _, _)) -> do
       nst <- mkLeftStr (constr <> " [" <> L.intercalate "," (fmap (L.intercalate " ") args) <> "]")
       ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
-        indent <- get @Int
-        let sht =
-              if
-                | idx == 0 && r == from -> replicate ((indent) * 2 + 2) ' ' <> (parensWarapper $ show t)
-                | otherwise -> show t
+        let sht = parensWarapper $ show t
             sht' =
               if
-                | r == from -> sht <> " ->"
-                | r == to -> sht <> " <-"
-                | otherwise -> sht
+                | r == from -> "Send " <> sht
+                | r == to -> "Recv " <> sht
+                | otherwise -> "     " <> sht
         tell $ Max $ RV (length sht')
         pure sht'
       when (idx == 0) (modify @Int (+ 1))
       pure (nst, ts')
-  , \((ts, i), _) -> pure ("Label " <> show i, map show ts)
+  , \((ts, i), _) -> pure ("Label " <> show i, mkStrs ts)
   , \(ts, (r, st, _)) -> do
       nst <- mkLeftStr $ "[Branch " <> show r <> " " <> st <> "]"
-      indent <- get @Int
-      let ts' =
-            [ if r1 == r then replicate (indent * 2 + 2) ' ' <> show t else show t
-            | (r1, t) <- zip (rRange @r) ts
-            ]
-      pure ((nst, ts'), restoreWrapper @Int)
+      pure ((nst, mkStrs ts), restoreWrapper @Int)
   , \(_, (bst, args, _)) -> do
       nst <- mkLeftStr $ "* BranchSt_" <> show bst <> " [" <> L.intercalate "," (fmap (L.intercalate " ") args) <> "]"
       pure nst
   , \((ts, i), _) -> do
       nst <- mkLeftStr $ "Goto " <> show i
-      pure (nst, map show ts)
+      pure (nst, mkStrs ts)
   , \ts -> do
       nst <- mkLeftStr "Terminal"
-      pure (nst, map show ts)
+      pure (nst, mkStrs ts)
   )
+
+mkStrs :: (Show bst) => [T bst] -> [String]
+mkStrs ts = map (("     " <>) . parensWarapper . show) ts
 
 fillStr :: Char -> Int -> String -> String
 fillStr c i st =
@@ -107,7 +102,7 @@ fillStr c i st =
    in case compare len i of
         EQ -> st
         LT -> st <> replicate (i - len) c
-        GT -> error "np"
+        GT -> st
 
 mkLine
   :: forall r sig m
@@ -142,7 +137,8 @@ render2XFold =
   )
 
 runRender1
-  :: (Enum r, Bounded r, Ord r, Show bst, Show r)
+  :: forall r bst
+   . (Enum r, Bounded r, Ord r, Show bst, Show r)
   => Protocol (MsgT r bst) r bst
   -> (Max LV, (Max RV, (Int, Protocol RenderProt r bst)))
 runRender1 prot =
@@ -150,7 +146,10 @@ runRender1 prot =
     . runWriter @(Max LV)
     . runWriter @(Max RV)
     . runState @Int 0
-    $ xtraverse render1XTraverse prot
+    $ do
+      let rg = rRange @r
+      for_ rg $ \r -> tell (Max (RV (length (show r))))
+      xtraverse render1XTraverse prot
 
 runRender :: forall r bst. (Enum r, Bounded r, Ord r, Show bst, Show r) => Protocol (MsgT r bst) r bst -> String
 runRender prot =
