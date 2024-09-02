@@ -49,7 +49,7 @@ newtype Index = Index Int deriving (Show, Eq, Ord, Num)
 
 addIdxXTraverse
   :: forall r bst sig m
-   . ( Has (State Int :+: State Index :+: State (Set Int) :+: Error (ProtocolError r bst)) sig m
+   . ( Has (State Int :+: State Index :+: State (Set Int)) sig m
      , Enum r
      , Bounded r
      , Ord r
@@ -323,6 +323,18 @@ genMsgT1XTraverse =
   , \a -> pure a
   )
 
+collAllMsgBAs :: (Has (Writer [(String, [T bst], [T bst])]) sig m) => XFold m (MsgT r bst) r bst
+collAllMsgBAs =
+  ( \((is, _, _), (cname, _, _, _, prot)) -> do
+      let os = getFirstXV prot
+      tell [(cname, is, os)]
+  , \_ -> pure ()
+  , \_ -> pure id
+  , \_ -> pure ()
+  , \_ -> pure ()
+  , \_ -> pure ()
+  )
+
 data PipeResult r bst = PipeResult
   { msgT :: Protocol (MsgT r bst) r bst
   , msgT1 :: Protocol (MsgT1 r bst) r bst
@@ -330,6 +342,7 @@ data PipeResult r bst = PipeResult
   , stBound :: (Int, Int)
   , branchResultTypeInfo :: [(String, [(bst, [[String]], T bst)])]
   , branchFunList :: [(r, String, T bst)]
+  , allMsgBATypes :: [(String, [T bst], [T bst])]
   }
 
 genBranchResultTIXFold
@@ -412,6 +425,7 @@ pipe' trace prot0 = do
       . runState @bst (error internalError)
       $ (xtraverse genMsgTXTraverse prot3)
   trace (TracerProtocolMsgT prot4)
+  allMsgBAs <- fst <$> runWriter @[(String, [T bst], [T bst])] (xfold collAllMsgBAs prot4)
   prot5 <- xtraverse genMsgT1XTraverse prot4
   trace (TracerProtocolMsgT1 prot5)
   (bfl, (_, (branchTIMap, _))) <-
@@ -420,7 +434,7 @@ pipe' trace prot0 = do
       . runState @(Map String [(bst, [[String]], T bst)]) Map.empty
       $ xfold genBranchResultTIXFold prot5
   trace (TracerBranchResultTI bfl branchTIMap)
-  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap) bfl)
+  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap) bfl allMsgBAs)
 
 pipe
   :: forall r bst
