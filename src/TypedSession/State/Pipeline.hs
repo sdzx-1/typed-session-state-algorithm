@@ -49,7 +49,7 @@ newtype Index = Index Int deriving (Show, Eq, Ord, Num)
 
 addIdxXTraverse
   :: forall r bst sig m
-   . ( Has (State Int :+: State Index :+: State (Set Int)) sig m
+   . ( Has (State Int :+: State Index) sig m
      , Enum r
      , Bounded r
      , Ord r
@@ -66,29 +66,12 @@ addIdxXTraverse =
   , const get
   , \(_, _) -> do
       inputIdx <- get @Int
-      modify (Set.insert inputIdx)
       pure (inputIdx, id)
   , \_ -> do
       put (Index 0)
       modify @Int (+ 1)
   , const get
   , const get
-  )
-
-reRank :: Set Int -> Int -> IntMap Int
-reRank branchValSet maxSize =
-  let allSet = Set.insert 0 branchValSet
-      restList = [i | i <- [0 .. maxSize], i `Set.notMember` allSet]
-   in IntMap.fromList $ zip (Set.toList allSet ++ restList) [0 ..]
-
-reRankXTraverse :: (Monad m) => IntMap Int -> XTraverse m Idx Idx r bst
-reRankXTraverse sbm =
-  ( \((a, b, idx), _) -> pure (replaceVal sbm a, replaceVal sbm b, idx)
-  , \(xs, _) -> pure (replaceVal sbm xs)
-  , \(a, _) -> pure (replaceVal sbm a, id)
-  , \_ -> pure ()
-  , \(xs, _) -> pure (replaceVal sbm xs)
-  , \xs -> pure (replaceVal sbm xs)
   )
 
 addNumsXTraverse
@@ -388,16 +371,13 @@ pipe'
   -> m (PipeResult r bst)
 pipe' trace prot0 = do
   trace (TracerProtocolCreat prot0)
-  (brSet, (maxSzie, (_, idxProt))) <-
-    runState @(Set Int) Set.empty
+  idxProt <-
+    fmap (snd . snd)
       . runState @Int 0
       . runState @Index (Index 100)
       $ (xtraverse addIdxXTraverse prot0)
   trace (TracerProtocolIdx idxProt)
-  trace (TracerReRank (reRank brSet maxSzie))
-  idxProt1 <- xtraverse (reRankXTraverse (reRank brSet maxSzie)) idxProt
-  trace (TracerProtocolIdx idxProt1)
-  prot1 <- xtraverse addNumsXTraverse idxProt1
+  prot1 <- xtraverse addNumsXTraverse idxProt
   trace (TracerProtocolAddNum prot1)
   prot2 <- xtraverse toGenConstrXTraverse prot1
   trace (TracerProtocolGenConst prot2)
