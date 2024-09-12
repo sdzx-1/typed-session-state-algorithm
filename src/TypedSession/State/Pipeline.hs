@@ -228,7 +228,7 @@ verifyProtXFold =
         Nothing -> modify (IntMap.insert from' ft)
         Just ft1 -> when (ft1 /= ft) (throwError @(ProtocolError r bst) AStateOnlyBeUsedForTheSamePair)
   , \_ -> pure ()
-  , \_ -> pure id
+  , \_ -> pure (restoreWrapper @(IntMap (r, r)))
   , \_ -> pure ()
   , \_ -> pure ()
   , \_ -> pure ()
