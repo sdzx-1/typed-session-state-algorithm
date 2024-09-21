@@ -45,18 +45,18 @@ r1 = case runProtocolParser @PingPongRole @PingPongBranchSt s1 of
 
 {-
 >>> error r1
----------------------------------------------Client--------------Server--------------Counter-------------
-Label 0                                           (S0)                (S1 s)              (S2 s)
-  [Branch Client ContinueOrFinish]                (S0)                (S1 s)              (S2 s)
-  * BranchSt_Continue []
-  AddOne [Maybe Int,Int,Either String Int]   Send (S2 Continue)       (S1 s)         Recv (S2 s)
-    Ping [Int,Int,Int]                       Send (S1 Continue)  Recv (S1 s)              (S2 s)
-    Pong []                                  Recv (S3)           Send (S3)                (S2 s)
-    Goto 0                                        (S0)                (S1 s)              (S2 s)
-  * BranchSt_Finish []
-  Stop []                                    Send (S1 Finish)    Recv (S1 s)              (S2 s)
-    CStop []                                 Send (S2 Finish)         (End)          Recv (S2 s)
-    Terminal                                      (End)               (End)               (End)
+-----------------------------------------------Client--------------Server--------------Counter-------------
+Label 0                                             (S0)                (S1 s)              (S2 s)         
+  [Branch Client ContinueOrFinish]                  (S0)                (S1 s)              (S2 s)         
+  * BranchSt_Continue []                       
+    AddOne [Maybe Int,Int,Either String Int]   Send (S2 Continue)       (S1 s)         Recv (S2 s)         
+    Ping [Int,Int,Int]                         Send (S1 Continue)  Recv (S1 s)              (S2 s)         
+    Pong []                                    Recv (S9)           Send (S9)                (S2 s)         
+    Goto 0                                          (S0)                (S1 s)              (S2 s)         
+  * BranchSt_Finish []                         
+    Stop []                                    Send (S1 Finish)    Recv (S1 s)              (S2 s)         
+    CStop []                                   Send (S2 Finish)         (End)          Recv (S2 s)         
+    Terminal                                        (End)               (End)               (End)          
 
 -}
 
@@ -131,40 +131,40 @@ r2 = case runProtocolParser @Role @BookBranchSt s2 of
 
 {-
 >>> error r2
---------------------------------------------Buyer-----------------Seller----------------Buyer2----------------
-Label 0                                          (S0)                  (S0)                  (S1 s)
-  Title [String]                            Send (S0)             Recv (S0)                  (S1 s)
-  [Branch Seller FindBookResult]                 (S2 s)                (S3)                  (S1 s)
-  * BranchSt_Found []
-  Price [Int]                               Recv (S2 s)           Send (S2 Found)            (S1 s)
-    [Branch Buyer OneOrTwo]                      (S4)                  (S5 s)                (S1 s)
-    * BranchSt_Two []
-    PriceToBuyer2 [Int]                     Send (S1 Two)              (S5 s)           Recv (S1 s)
-      [Branch Buyer2 SupportOrNotSupport]        (S6 s)                (S5 s)                (S7)
-      * BranchSt_NotSupport []
-      NotSupport1 []                        Recv (S6 s)                (S5 s)           Send (S6 NotSupport)
-        TwoNotBuy []                        Send (S5 NotSupport)  Recv (S5 s)                (S1 s)
-        Goto 0                                   (S0)                  (S0)                  (S1 s)
-      * BranchSt_Support []
-      SupportVal [Int]                      Recv (S6 s)                (S5 s)           Send (S6 Support)
-        [Branch Buyer EnoughOrNotEnough]         (S8)                  (S5 s)                (S9 s)
-        * BranchSt_Enough []
-        TwoAccept []                        Send (S5 Enough)      Recv (S5 s)                (S9 s)
-          TwoDate [Int]                     Recv (S10)            Send (S10)                 (S9 s)
-          TwoSuccess [Int]                  Send (S9 Enough)           (S0)             Recv (S9 s)
-          Goto 0                                 (S0)                  (S0)                  (S1 s)
-        * BranchSt_NotEnough []
-        TwoNotBuy1 []                       Send (S5 NotEnough)   Recv (S5 s)                (S9 s)
-          TwoFailed []                      Send (S9 NotEnough)        (End)            Recv (S9 s)
-          Terminal                               (End)                 (End)                 (End)
-    * BranchSt_One []
-    OneAccept []                            Send (S5 One)         Recv (S5 s)                (S1 s)
-      OneDate [Int]                         Recv (S11)            Send (S11)                 (S1 s)
-      OneSuccess [Int]                      Send (S1 One)              (S0)             Recv (S1 s)
-      Goto 0                                     (S0)                  (S0)                  (S1 s)
-  * BranchSt_NotFound []
-  NoBook []                                 Recv (S2 s)           Send (S2 NotFound)         (S1 s)
-    SellerNoBook []                         Send (S1 NotFound)         (S0)             Recv (S1 s)
-    Goto 0                                       (S0)                  (S0)                  (S1 s)
+--------------------------------------------Buyer------------------Seller-----------------Buyer2-----------------
+Label 0                                          (S0)                   (S0)                   (S2 s)            
+  Title [String]                            Send (S0)              Recv (S0)                   (S2 s)            
+  [Branch Seller FindBookResult]                 (S3 s)                 (S4)                   (S2 s)            
+  * BranchSt_Found []                       
+    Price [Int]                             Recv (S3 s)            Send (S3 Found)             (S2 s)            
+    [Branch Buyer OneOrTwo]                      (S9)                   (S10 s)                (S2 s)            
+    * BranchSt_Two []                       
+      PriceToBuyer2 [Int]                   Send (S2 Two)               (S10 s)           Recv (S2 s)            
+      [Branch Buyer2 SupportOrNotSupport]        (S15 s)                (S10 s)                (S17)             
+      * BranchSt_NotSupport []              
+        NotSupport1 []                      Recv (S15 s)                (S10 s)           Send (S15 NotSupport)  
+        TwoNotBuy []                        Send (S10 NotSupport)  Recv (S10 s)                (S2 s)            
+        Goto 0                                   (S0)                   (S0)                   (S2 s)            
+      * BranchSt_Support []                 
+        SupportVal [Int]                    Recv (S15 s)                (S10 s)           Send (S15 Support)     
+        [Branch Buyer EnoughOrNotEnough]         (S30)                  (S10 s)                (S32 s)           
+        * BranchSt_Enough []                
+          TwoAccept []                      Send (S10 Enough)      Recv (S10 s)                (S32 s)           
+          TwoDate [Int]                     Recv (S36)             Send (S36)                  (S32 s)           
+          TwoSuccess [Int]                  Send (S32 Enough)           (S0)              Recv (S32 s)           
+          Goto 0                                 (S0)                   (S0)                   (S2 s)            
+        * BranchSt_NotEnough []             
+          TwoNotBuy1 []                     Send (S10 NotEnough)   Recv (S10 s)                (S32 s)           
+          TwoFailed []                      Send (S32 NotEnough)        (End)             Recv (S32 s)           
+          Terminal                               (End)                  (End)                  (End)             
+    * BranchSt_One []                       
+      OneAccept []                          Send (S10 One)         Recv (S10 s)                (S2 s)            
+      OneDate [Int]                         Recv (S57)             Send (S57)                  (S2 s)            
+      OneSuccess [Int]                      Send (S2 One)               (S0)              Recv (S2 s)            
+      Goto 0                                     (S0)                   (S0)                   (S2 s)            
+  * BranchSt_NotFound []                    
+    NoBook []                               Recv (S3 s)            Send (S3 NotFound)          (S2 s)            
+    SellerNoBook []                         Send (S2 NotFound)          (S0)              Recv (S2 s)            
+    Goto 0                                       (S0)                   (S0)                   (S2 s)            
 
 -}

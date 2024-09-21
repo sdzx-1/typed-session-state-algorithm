@@ -66,6 +66,7 @@ render1XTraverse
   => XTraverse m (MsgT r bst) RenderProt r bst
 render1XTraverse =
   ( \((ts, (from, to), idx), (constr, args, _, _, _)) -> do
+      when (idx == 0) (modify @Int (+ 1))
       nst <- mkLeftStr (constr <> " [" <> L.intercalate "," (fmap (L.intercalate " ") args) <> "]")
       ts' <- for (zip (rRange @r) ts) $ \(r, t) -> do
         let sht = parensWarapper $ show t
@@ -76,7 +77,6 @@ render1XTraverse =
                 | otherwise -> "     " <> sht
         tell $ Max $ RV (length sht')
         pure sht'
-      when (idx == 0) (modify @Int (+ 1))
       pure (nst, ts')
   , \((ts, i), _) -> pure ("Label " <> show i, mkStrs ts)
   , \(ts, (r, st, _)) -> do

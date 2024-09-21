@@ -26,6 +26,9 @@ import qualified Data.List as L
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Data.Traversable (for)
 import qualified TypedSession.State.Constraint as C
 import TypedSession.State.Type
 import Prelude hiding (traverse)
@@ -60,18 +63,12 @@ getAllMsgInfo = \case
 tellSeq :: (Has (Writer (Seq a)) sig m) => [a] -> m ()
 tellSeq ls = tell (Seq.fromList ls)
 
-compressSubMap :: C.SubMap -> (C.SubMap, (Int, Int))
-compressSubMap sbm' =
-  let (minKey, maxKey) = (fst $ IntMap.findMin sbm', fst $ IntMap.findMax sbm')
-      list = [minKey .. maxKey]
-      (keys, vals) = (list, fmap (\k -> fromMaybe k $ IntMap.lookup k sbm') list)
-      minVal = minimum vals
-      tmap = IntMap.fromList $ zip (L.nub $ L.sort vals) [minVal, minVal + 1 ..]
-      vals' = fmap (\k -> fromJust $ IntMap.lookup k tmap) vals
-   in (IntMap.fromList $ zip keys vals', (-1, maximum vals'))
-
-replaceList :: C.SubMap -> [Int] -> [Int]
-replaceList sbm ls = fmap (\k -> fromMaybe k $ IntMap.lookup k sbm) ls
+replaceList :: (Has (State (Set Int)) sig m) => C.SubMap -> [Int] -> m [Int]
+replaceList sbm ls = do
+  for ls $ \k -> do
+    let newVal = fromMaybe k $ IntMap.lookup k sbm
+    modify (Set.insert newVal)
+    pure newVal
 
 replaceVal :: IntMap Int -> Int -> Int
 replaceVal sbm k = fromMaybe (error internalError) $ IntMap.lookup k sbm

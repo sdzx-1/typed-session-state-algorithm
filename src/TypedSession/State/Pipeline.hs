@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
@@ -205,15 +206,23 @@ genConstrXFold =
   , \(xs) -> tellSeq $ zipWith C.Constraint xs (cycle [-1])
   )
 
-replXTraverse :: (Monad m) => C.SubMap -> XTraverse m (GenConst r) (GenConst r) r bst
+replXTraverse :: (Has (State (Set Int)) sig m) => C.SubMap -> XTraverse m (GenConst r) (GenConst r) r bst
 replXTraverse sbm =
-  ( \(((a, b), (from, to), i), _) ->
-      pure ((replaceList sbm a, replaceList sbm b), (from, to), i)
-  , \((xs, i), _) -> pure (replaceList sbm xs, i)
-  , \(a, _) -> pure (replaceList sbm a, id)
+  ( \(((a, b), (from, to), i), _) -> do
+      a' <- replaceList sbm a
+      b' <- replaceList sbm b
+      pure ((a', b'), (from, to), i)
+  , \((xs, i), _) -> do
+      xs' <- replaceList sbm xs
+      pure (xs', i)
+  , \(a, _) -> do
+      a' <- replaceList sbm a
+      pure (a', id)
   , \_ -> pure ()
-  , \((xs, i), _) -> pure (replaceList sbm xs, i)
-  , \xs -> pure (replaceList sbm xs)
+  , \((xs, i), _) -> do
+      xs' <- replaceList sbm xs
+      pure (xs', i)
+  , \xs -> replaceList sbm xs
   )
 
 verifyProtXFold
@@ -322,7 +331,7 @@ data PipeResult r bst = PipeResult
   { msgT :: Protocol (MsgT r bst) r bst
   , msgT1 :: Protocol (MsgT1 r bst) r bst
   , dnySet :: Set Int
-  , stBound :: (Int, Int)
+  , stList :: [Int]
   , branchResultTypeInfo :: [(String, [(bst, [[String]], T bst)])]
   , branchFunList :: [(r, String, T bst)]
   , allMsgBATypes :: [(String, [T bst], [T bst])]
@@ -374,7 +383,7 @@ pipe' trace prot0 = do
   idxProt <-
     fmap (snd . snd)
       . runState @Int 0
-      . runState @Index (Index 100)
+      . runState @Index (Index 1_000_000)
       $ (xtraverse addIdxXTraverse prot0)
   trace (TracerProtocolIdx idxProt)
   prot1 <- xtraverse addNumsXTraverse idxProt
@@ -391,9 +400,9 @@ pipe' trace prot0 = do
       . runState @[Int] (error internalError)
       $ xfold genConstrXFold prot2
   trace (TracerConstraints constraintList)
-  let (sbm, stBound) = compressSubMap $ C.constrToSubMap $ toList constraintList
-  trace (TracerSubMap sbm)
-  prot3 <- xtraverse (replXTraverse sbm) prot2
+  let sbm = C.constrToSubMap $ toList constraintList
+  (stSet, prot3) <- runState (Set.singleton (-1)) $ xtraverse (replXTraverse sbm) prot2
+  trace (TracerSubMapAndStList (sbm, stSet))
   trace (TracerProtocolGenConstN prot3)
   verifyResult <- fst <$> runState @(IntMap (r, r)) (IntMap.empty) (xfold verifyProtXFold prot3)
   trace (TracerVerifyResult verifyResult)
@@ -414,7 +423,7 @@ pipe' trace prot0 = do
       . runState @(Map String [(bst, [[String]], T bst)]) Map.empty
       $ xfold genBranchResultTIXFold prot5
   trace (TracerBranchResultTI bfl branchTIMap)
-  pure (PipeResult prot4 prot5 dnys stBound (Map.toList branchTIMap) bfl allMsgBAs)
+  pure (PipeResult prot4 prot5 dnys (Set.toList stSet) (Map.toList branchTIMap) bfl allMsgBAs)
 
 pipe
   :: forall r bst

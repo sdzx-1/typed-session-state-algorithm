@@ -169,7 +169,7 @@ data Tracer r bst
   | TracerProtocolAddNum (Protocol AddNums r bst)
   | TracerProtocolGenConst (Protocol (GenConst r) r bst)
   | TracerConstraints (Seq C.Constraint)
-  | TracerSubMap C.SubMap
+  | TracerSubMapAndStList (C.SubMap, Set Int)
   | TracerProtocolGenConstN (Protocol (GenConst r) r bst)
   | TracerVerifyResult (IntMap (r, r))
   | TracerCollectBranchDynVal (Set Int)
@@ -189,7 +189,7 @@ instance (Show r, Show bst) => Show (Tracer r bst) where
     TracerProtocolAddNum p -> traceWrapper "AddNum" $ show p
     TracerProtocolGenConst p -> traceWrapper "GenConst" $ show p
     TracerConstraints p -> traceWrapper "Constrains" $ show p
-    TracerSubMap p -> traceWrapper "SubMap" $ show p
+    TracerSubMapAndStList p -> traceWrapper "SubMapAndStList" $ show p
     TracerProtocolGenConstN p -> traceWrapper "GenConstN" $ show p
     TracerVerifyResult m -> traceWrapper "VerifyResult Map" $ show m
     TracerCollectBranchDynVal dvs -> traceWrapper "CollectBranchDynVal" $ show dvs
